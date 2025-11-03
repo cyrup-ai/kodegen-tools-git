@@ -1,0 +1,69 @@
+[package]
+name = "kodegen_tools_git"
+version = "0.1.0"
+edition = "2024"
+description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
+authors = ["KODEGEN.ᴀɪ"]
+homepage = "https://kodegen.ai"
+repository = "https://github.com/cyrup-ai/kodegen-tools-git"
+readme = "README.md"
+categories = ["development-tools", "command-line-utilities", "api-bindings"]
+keywords = [
+    "mcp",
+    "terminal",
+    "agent",
+    "filesystem",
+    "claude"
+]
+license = "Apache-2.0 OR MIT"
+
+[dependencies]
+kodegen_mcp_schema = { version = "0.1" }
+kodegen_mcp_tool = { version = "0.1" }
+kodegen_utils = { version = "0.1" }
+kodegen_tools_config = { version = "0.1" }
+kodegen_server_http = { version = "0.1" }
+schemars = "1"
+anyhow = "1"
+rmcp = { version = "0.8", features = ["client", "schemars", "server", "transport-sse-server", "transport-child-process", "transport-io", "transport-sse-client", "transport-sse-client-reqwest", "transport-streamable-http-client", "transport-streamable-http-client-reqwest"]}
+
+gix         = { version = "0.74", default-features = false, features = [
+    "blocking-network-client",
+    "max-performance",
+    "credentials",
+    "revision",
+    "index",
+    "blob-diff",
+    "worktree-mutation",
+    "merge",
+    "excludes",
+    "status",
+] }
+# Explicit dependencies to fix Docker build transitive dependency resolution
+gix-lock = "19"
+gix-tempfile = "19"
+gix-utils = "0.3"
+thiserror   = "2"
+chrono      = "0.4"
+log         = "0.4"
+tokio       = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "fs"] }
+tokio-stream = "0.1"
+futures     = "0.3"
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+walkdir     = "2"
+
+[dev-dependencies]
+kodegen_mcp_client = { version = "0.1"  }
+tempfile    = "3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[lib]
+name = "kodegen_tools_git"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kodegen-git"
+path = "src/main.rs"
