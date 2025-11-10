@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_tools_git"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
 authors = ["KODEGEN.ᴀɪ"]
@@ -37,6 +37,10 @@ kodegen_server_http = { version = "0.1" }
 schemars = "1"
 anyhow = "1"
 rmcp = { version = "0.8", features = ["client", "schemars", "server", "transport-sse-server", "transport-child-process", "transport-io", "transport-sse-client", "transport-sse-client-reqwest", "transport-streamable-http-client", "transport-streamable-http-client-reqwest"]}
+
+# Dependencies for embedded server mode
+env_logger = "0.11"
+rustls = "0.23"
 
 gix         = { version = "0.74", default-features = false, features = [
     "blocking-network-client",

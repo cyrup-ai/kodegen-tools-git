@@ -265,3 +265,74 @@ pub mod git {
         pub use crate::operations::open::*;
     }
 }
+
+/// Start the HTTP server programmatically for embedded mode
+///
+/// This is called by kodegend instead of spawning an external process.
+/// Blocks until the server shuts down.
+///
+/// # Arguments
+/// * `addr` - Socket address to bind to (e.g., "127.0.0.1:30450")
+/// * `tls_cert` - Optional path to TLS certificate file
+/// * `tls_key` - Optional path to TLS private key file
+///
+/// # Returns
+/// ServerHandle for graceful shutdown, or error if startup fails
+pub async fn start_server(
+    addr: std::net::SocketAddr,
+    tls_cert: Option<std::path::PathBuf>,
+    tls_key: Option<std::path::PathBuf>,
+) -> anyhow::Result<kodegen_server_http::ServerHandle> {
+    use kodegen_server_http::{create_http_server, Managers, RouterSet, register_tool};
+    use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
+    use std::time::Duration;
+
+    let tls_config = match (tls_cert, tls_key) {
+        (Some(cert), Some(key)) => Some((cert, key)),
+        _ => None,
+    };
+
+    let shutdown_timeout = Duration::from_secs(30);
+
+    create_http_server("git", addr, tls_config, shutdown_timeout, |_config, _tracker| {
+        Box::pin(async move {
+            let mut tool_router = ToolRouter::new();
+            let mut prompt_router = PromptRouter::new();
+            let managers = Managers::new();
+
+            // Register all 20 git tools (zero-state structs, no constructors)
+            
+            // Repository initialization (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitInitTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitOpenTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCloneTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitDiscoverTool);
+
+            // Branch operations (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchCreateTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchDeleteTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchListTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchRenameTool);
+
+            // Core git operations (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCommitTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitLogTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitAddTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCheckoutTool);
+
+            // Remote operations (2 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitFetchTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitMergeTool);
+
+            // Worktree operations (6 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeAddTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeRemoveTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeListTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeLockTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeUnlockTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreePruneTool);
+
+            Ok(RouterSet::new(tool_router, prompt_router, managers))
+        })
+    }).await
+}
