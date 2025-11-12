@@ -20,16 +20,18 @@ pub use runtime::{AsyncStream, AsyncTask, EmitterBuilder};
 
 // Re-export Git operations
 pub use operations::{
-    AddOpts, BranchInfo, BranchOpts, CheckoutOpts, CloneOpts, CommitOpts, FetchOpts, LogOpts,
-    MergeOpts, MergeOutcome, PushOpts, PushResult, RemoteInfo, RepositoryInfo, ResetMode,
-    ResetOpts, Signature, TagInfo, TagOpts, WorktreeAddOpts, WorktreeInfo, WorktreeLockOpts,
-    WorktreeRemoveOpts, add, branch, check_remote_branch_exists, check_remote_tag_exists, checkout,
-    clone_repo, commit, create_tag, current_branch, delete_branch, delete_remote_branch,
-    delete_remote_tag, delete_tag, discover_repo, fetch, head_commit, init_bare_repo, init_repo,
-    is_clean, is_detached, is_repository, list_branches, list_remotes, list_tags, list_worktrees,
-    log, merge, open_repo, probe_repository, push, push_current_branch, push_tags, remote_exists,
-    rename_branch, reset, reset_hard, reset_mixed, reset_soft, tag_exists, worktree_add,
-    worktree_lock, worktree_prune, worktree_remove, worktree_unlock,
+    AddOpts, BranchInfo, BranchOpts, CheckoutOpts, CloneOpts, CommitOpts, DetailedCommitInfo,
+    FetchOpts, GitUrl, LogOpts, MergeOpts, MergeOutcome, PushOpts, PushResult, RemoteInfo,
+    RepoPaths, RepositoryInfo, ResetMode, ResetOpts, Signature, TagInfo, TagOpts,
+    WorktreeAddOpts, WorktreeInfo, WorktreeLockOpts, WorktreeRemoveOpts, add, branch,
+    check_remote_branch_exists, check_remote_tag_exists, checkout, clone_repo, commit, create_tag,
+    current_branch, delete_branch, delete_remote_branch, delete_remote_tag, delete_tag,
+    discover_repo, fetch, get_commit_details, get_repo_paths, head_commit, init_bare_repo,
+    init_repo, is_clean, is_detached, is_repository, list_branches, list_remotes, list_tags,
+    list_worktrees, log, merge, open_repo, parse_git_url, probe_repository, push,
+    push_current_branch, push_tags, remote_exists, rename_branch, reset, reset_hard, reset_mixed,
+    reset_soft, tag_exists, worktree_add, worktree_lock, worktree_prune, worktree_remove,
+    worktree_unlock,
 };
 
 // Re-export MCP tools
@@ -301,7 +303,7 @@ pub async fn start_server(
             let managers = Managers::new();
 
             // Register all 20 git tools (zero-state structs, no constructors)
-            
+
             // Repository initialization (4 tools)
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitInitTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitOpenTool);

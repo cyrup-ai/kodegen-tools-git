@@ -8,6 +8,7 @@ pub mod checkout;
 pub mod clone;
 pub mod commit;
 pub mod fetch;
+pub mod introspection;
 pub mod log;
 pub mod merge;
 pub mod open;
@@ -24,6 +25,7 @@ pub use checkout::{CheckoutOpts, checkout};
 pub use clone::{CloneOpts, clone_repo};
 pub use commit::{CommitOpts, Signature, commit};
 pub use fetch::{FetchOpts, fetch};
+pub use introspection::{DetailedCommitInfo, GitUrl, RepoPaths, get_commit_details, get_repo_paths, parse_git_url};
 pub use log::{LogOpts, log};
 pub use merge::{MergeOpts, MergeOutcome, merge};
 pub use open::{
