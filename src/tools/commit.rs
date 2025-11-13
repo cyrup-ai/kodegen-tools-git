@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitCommitArgs, GitCommitPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for creating Git commits
@@ -35,7 +35,7 @@ impl Tool for GitCommitTool {
         false // Creates new commits each time
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -49,7 +49,7 @@ impl Tool for GitCommitTool {
         opts = opts.all(args.all);
 
         // Set author if provided
-        if let (Some(name), Some(email)) = (args.author_name, args.author_email) {
+        if let (Some(name), Some(email)) = (args.author_name.clone(), args.author_email.clone()) {
             let author = crate::Signature::new(name, email);
             opts = opts.author(author);
         }
@@ -59,11 +59,29 @@ impl Tool for GitCommitTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let commit_short = &commit_id.to_string()[..7.min(commit_id.to_string().len())];
+        let summary = format!(
+            "✓ Commit created\n\n\
+             Commit: {}\n\
+             Message: {}",
+            commit_short, args.message
+        );
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "commit_id": commit_id.to_string(),
             "message": args.message
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

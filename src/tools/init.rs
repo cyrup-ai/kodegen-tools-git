@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitInitArgs, GitInitPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for initializing Git repositories
@@ -36,7 +36,7 @@ impl Tool for GitInitTool {
         false // Will fail if repo already exists
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Call appropriate function based on bare flag
@@ -52,13 +52,30 @@ impl Tool for GitInitTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let repo_type = if args.bare { "bare" } else { "normal" };
+        let summary = format!(
+            "✓ Git repository initialized\n\n\
+             Type: {}\n\
+             Path: {}",
+            repo_type, args.path
+        );
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "path": args.path,
             "bare": args.bare,
-            "message": format!("Initialized {} Git repository at {}",
-                if args.bare { "bare" } else { "normal" }, args.path)
-        }))
+            "message": format!("Initialized {} Git repository at {}", repo_type, args.path)
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

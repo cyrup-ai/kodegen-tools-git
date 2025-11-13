@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitAddArgs, GitAddPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for staging files in Git
@@ -35,7 +35,7 @@ impl Tool for GitAddTool {
         true // Staging same files multiple times is safe
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -67,12 +67,35 @@ impl Tool for GitAddTool {
 
         let count = paths_to_stage.len();
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let summary = if args.all {
+            "✓ Files staged\n\nAll modified files staged".to_string()
+        } else {
+            format!(
+                "✓ Files staged ({})\n\n{}",
+                count,
+                paths_to_stage.iter()
+                    .map(|p| format!("  • {}", p))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        };
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "all": args.all,
             "paths": if args.all { vec![".".to_string()] } else { paths_to_stage },
             "count": if args.all { 1 } else { count }
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

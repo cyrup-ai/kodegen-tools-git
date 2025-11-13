@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitFetchArgs, GitFetchPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for fetching from remote repositories
@@ -35,7 +35,7 @@ impl Tool for GitFetchTool {
         true // Safe to fetch repeatedly
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -56,11 +56,34 @@ impl Tool for GitFetchTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let mut details = vec![format!("Remote: {}", args.remote)];
+        if args.prune {
+            details.push("Pruned stale refs".to_string());
+        }
+        if !args.refspecs.is_empty() {
+            details.push(format!("Refspecs: {}", args.refspecs.join(", ")));
+        }
+
+        let summary = format!(
+            "✓ Fetch completed\n\n{}",
+            details.join("\n")
+        );
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "remote": args.remote,
             "pruned": args.prune
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

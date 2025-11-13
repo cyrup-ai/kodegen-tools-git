@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitLogArgs, GitLogPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 use tokio_stream::StreamExt;
 
@@ -36,7 +36,7 @@ impl Tool for GitLogTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -89,11 +89,48 @@ impl Tool for GitLogTool {
             }
         }
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let summary = if commits.is_empty() {
+            "✓ No commits found".to_string()
+        } else {
+            let commit_list = commits.iter()
+                .take(5)
+                .map(|c| {
+                    let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    let summary_text = c.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+                    format!("  • {} {}", &id[..7.min(id.len())], summary_text)
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            
+            let more = if commits.len() > 5 {
+                format!("\n  ... and {} more", commits.len() - 5)
+            } else {
+                String::new()
+            };
+
+            format!(
+                "✓ Commits found ({})\n\n{}{}",
+                commits.len(),
+                commit_list,
+                more
+            )
+        };
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "commits": commits,
             "count": commits.len()
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

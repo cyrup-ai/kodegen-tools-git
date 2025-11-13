@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitBranchDeleteArgs, GitBranchDeletePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for deleting Git branches
@@ -35,7 +35,7 @@ impl Tool for GitBranchDeleteTool {
         false // Will fail if branch doesn't exist
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -50,11 +50,28 @@ impl Tool for GitBranchDeleteTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let summary = format!(
+            "✓ Branch deleted\n\n\
+             Branch: {}{}",
+            args.branch,
+            if args.force { " (forced)" } else { "" }
+        );
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "branch": args.branch,
             "message": format!("Deleted branch '{}'", args.branch)
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

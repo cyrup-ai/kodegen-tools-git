@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitWorktreeListArgs, GitWorktreeListPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for listing worktrees
@@ -36,7 +36,7 @@ impl Tool for GitWorktreeListTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -68,11 +68,43 @@ impl Tool for GitWorktreeListTool {
             })
             .collect();
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let worktree_list = if worktrees.is_empty() {
+            "No worktrees found".to_string()
+        } else {
+            worktrees.iter()
+                .map(|wt| {
+                    let main_indicator = if wt.is_main { " (main)" } else { "" };
+                    let locked_indicator = if wt.is_locked { " [locked]" } else { "" };
+                    let branch_info = wt.head_branch.as_ref()
+                        .map(|b| format!(" - {}", b))
+                        .unwrap_or_else(|| " - detached".to_string());
+                    format!("  • {}{}{}{}", wt.path.display(), main_indicator, branch_info, locked_indicator)
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+
+        let summary = format!(
+            "✓ Worktrees listed ({})\n\n{}",
+            worktrees.len(),
+            worktree_list
+        );
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "worktrees": worktrees_json,
             "count": worktrees.len()
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

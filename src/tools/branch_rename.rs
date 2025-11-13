@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitBranchRenameArgs, GitBranchRenamePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for renaming Git branches
@@ -35,7 +35,7 @@ impl Tool for GitBranchRenameTool {
         false // Will fail if already renamed
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -55,12 +55,29 @@ impl Tool for GitBranchRenameTool {
         .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
         .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let summary = format!(
+            "✓ Branch renamed\n\n\
+             Old name: {}\n\
+             New name: {}",
+            args.old_name, args.new_name
+        );
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "old_name": args.old_name,
             "new_name": args.new_name,
             "message": format!("Renamed branch '{}' to '{}'", args.old_name, args.new_name)
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

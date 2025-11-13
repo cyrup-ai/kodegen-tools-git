@@ -2,8 +2,8 @@
 
 use kodegen_mcp_tool::{Tool, error::McpError};
 use kodegen_mcp_schema::git::{GitWorktreePruneArgs, GitWorktreePrunePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage};
-use serde_json::{Value, json};
+use rmcp::model::{PromptArgument, PromptMessage, Content};
+use serde_json::json;
 use std::path::Path;
 
 /// Tool for pruning stale worktrees
@@ -36,7 +36,7 @@ impl Tool for GitWorktreePruneTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -51,12 +51,36 @@ impl Tool for GitWorktreePruneTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Terminal summary
+        let summary = if pruned.is_empty() {
+            "✓ No stale worktrees to prune".to_string()
+        } else {
+            let pruned_list = pruned.iter()
+                .map(|name| format!("  • {}", name))
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "✓ Pruned {} stale worktree(s)\n\n{}",
+                pruned.len(),
+                pruned_list
+            )
+        };
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "success": true,
             "pruned": pruned,
             "count": pruned.len(),
             "message": format!("Pruned {} stale worktree(s)", pruned.len())
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

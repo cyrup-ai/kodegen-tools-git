@@ -296,7 +296,7 @@ pub async fn start_server(
 
     let shutdown_timeout = Duration::from_secs(30);
 
-    create_http_server("git", addr, tls_config, shutdown_timeout, |_config, _tracker| {
+    create_http_server("git", addr, tls_config, shutdown_timeout, Duration::ZERO, |_config, _tracker| {
         Box::pin(async move {
             let mut tool_router = ToolRouter::new();
             let mut prompt_router = PromptRouter::new();
