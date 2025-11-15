@@ -15,7 +15,7 @@ impl Tool for GitBranchDeleteTool {
     type PromptArgs = GitBranchDeletePromptArgs;
 
     fn name() -> &'static str {
-        "git_branch_delete"
+        kodegen_mcp_schema::git::GIT_BRANCH_DELETE
     }
 
     fn description() -> &'static str {

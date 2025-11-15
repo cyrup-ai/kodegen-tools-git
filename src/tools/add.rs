@@ -15,7 +15,7 @@ impl Tool for GitAddTool {
     type PromptArgs = GitAddPromptArgs;
 
     fn name() -> &'static str {
-        "git_add"
+        kodegen_mcp_schema::git::GIT_ADD
     }
 
     fn description() -> &'static str {

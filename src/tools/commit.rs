@@ -15,7 +15,7 @@ impl Tool for GitCommitTool {
     type PromptArgs = GitCommitPromptArgs;
 
     fn name() -> &'static str {
-        "git_commit"
+        kodegen_mcp_schema::git::GIT_COMMIT
     }
 
     fn description() -> &'static str {

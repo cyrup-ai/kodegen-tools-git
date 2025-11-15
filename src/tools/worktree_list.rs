@@ -15,7 +15,7 @@ impl Tool for GitWorktreeListTool {
     type PromptArgs = GitWorktreeListPromptArgs;
 
     fn name() -> &'static str {
-        "git_worktree_list"
+        kodegen_mcp_schema::git::GIT_WORKTREE_LIST
     }
 
     fn description() -> &'static str {

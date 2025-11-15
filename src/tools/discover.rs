@@ -15,7 +15,7 @@ impl Tool for GitDiscoverTool {
     type PromptArgs = GitDiscoverPromptArgs;
 
     fn name() -> &'static str {
-        "git_discover"
+        kodegen_mcp_schema::git::GIT_DISCOVER
     }
 
     fn description() -> &'static str {

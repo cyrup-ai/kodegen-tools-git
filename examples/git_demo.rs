@@ -1,7 +1,7 @@
 mod common;
 
 use anyhow::Context;
-use kodegen_mcp_client::tools;
+use kodegen_mcp_schema::git::*;
 use serde_json::json;
 use tracing::{error, info};
 
@@ -50,7 +50,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("1. Testing git_init");
         let result = client
             .call_tool(
-                tools::GIT_INIT,
+                GIT_INIT,
                 json!({ "path": test_repo.to_string_lossy() }),
             )
             .await?;
@@ -60,7 +60,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("2. Testing git_open");
         let result = client
             .call_tool(
-                tools::GIT_OPEN,
+                GIT_OPEN,
                 json!({ "path": test_repo.to_string_lossy() }),
             )
             .await?;
@@ -70,7 +70,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("3. Testing git_discover");
         let result = client
             .call_tool(
-                tools::GIT_DISCOVER,
+                GIT_DISCOVER,
                 json!({ "path": test_repo.to_string_lossy() }),
             )
             .await?;
@@ -80,7 +80,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("4. Testing git_branch_list");
         let result = client
             .call_tool(
-                tools::GIT_BRANCH_LIST,
+                GIT_BRANCH_LIST,
                 json!({ "repo_path": test_repo.to_string_lossy() }),
             )
             .await?;
@@ -90,7 +90,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("5. Testing git_branch_create");
         let result = client
             .call_tool(
-                tools::GIT_BRANCH_CREATE,
+                GIT_BRANCH_CREATE,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "branch_name": "feature-test"
@@ -103,7 +103,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("6. Testing git_branch_rename");
         let result = client
             .call_tool(
-                tools::GIT_BRANCH_RENAME,
+                GIT_BRANCH_RENAME,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "old_name": "feature-test",
@@ -117,7 +117,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("7. Testing git_checkout");
         let result = client
             .call_tool(
-                tools::GIT_CHECKOUT,
+                GIT_CHECKOUT,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "branch": "feature-renamed"
@@ -130,7 +130,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("8. Testing git_add");
         let result = client
             .call_tool(
-                tools::GIT_ADD,
+                GIT_ADD,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "paths": ["."]
@@ -143,7 +143,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("9. Testing git_commit");
         let result = client
             .call_tool(
-                tools::GIT_COMMIT,
+                GIT_COMMIT,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "message": "Initial commit"
@@ -156,7 +156,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("10. Testing git_log");
         let result = client
             .call_tool(
-                tools::GIT_LOG,
+                GIT_LOG,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "max_count": 10
@@ -169,7 +169,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("11. Testing git_fetch");
         match client
             .call_tool(
-                tools::GIT_FETCH,
+                GIT_FETCH,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "remote": "origin"
@@ -190,7 +190,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("12. Testing git_merge");
         let result = client
             .call_tool(
-                tools::GIT_MERGE,
+                GIT_MERGE,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "branch": "main"
@@ -206,7 +206,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("14. Testing git_worktree_add");
         let result = client
             .call_tool(
-                tools::GIT_WORKTREE_ADD,
+                GIT_WORKTREE_ADD,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "path": worktree_path.to_string_lossy(),
@@ -220,7 +220,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("15. Testing git_worktree_list");
         let result = client
             .call_tool(
-                tools::GIT_WORKTREE_LIST,
+                GIT_WORKTREE_LIST,
                 json!({ "repo_path": test_repo.to_string_lossy() }),
             )
             .await?;
@@ -230,7 +230,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("16. Testing git_worktree_lock");
         let result = client
             .call_tool(
-                tools::GIT_WORKTREE_LOCK,
+                GIT_WORKTREE_LOCK,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "path": worktree_path.to_string_lossy()
@@ -243,7 +243,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("17. Testing git_worktree_unlock");
         let result = client
             .call_tool(
-                tools::GIT_WORKTREE_UNLOCK,
+                GIT_WORKTREE_UNLOCK,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "path": worktree_path.to_string_lossy()
@@ -256,7 +256,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("18. Testing git_worktree_remove");
         let result = client
             .call_tool(
-                tools::GIT_WORKTREE_REMOVE,
+                GIT_WORKTREE_REMOVE,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "path": worktree_path.to_string_lossy()
@@ -269,7 +269,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("19. Testing git_worktree_prune");
         let result = client
             .call_tool(
-                tools::GIT_WORKTREE_PRUNE,
+                GIT_WORKTREE_PRUNE,
                 json!({ "repo_path": test_repo.to_string_lossy() }),
             )
             .await?;
@@ -279,7 +279,7 @@ async fn run_git_example(client: &common::LoggingClient) -> anyhow::Result<()> {
         info!("20. Testing git_branch_delete");
         let result = client
             .call_tool(
-                tools::GIT_BRANCH_DELETE,
+                GIT_BRANCH_DELETE,
                 json!({
                     "repo_path": test_repo.to_string_lossy(),
                     "branch_name": "feature-renamed"

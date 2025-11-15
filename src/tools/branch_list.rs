@@ -15,7 +15,7 @@ impl Tool for GitBranchListTool {
     type PromptArgs = GitBranchListPromptArgs;
 
     fn name() -> &'static str {
-        "git_branch_list"
+        kodegen_mcp_schema::git::GIT_BRANCH_LIST
     }
 
     fn description() -> &'static str {

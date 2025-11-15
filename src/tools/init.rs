@@ -15,7 +15,7 @@ impl Tool for GitInitTool {
     type PromptArgs = GitInitPromptArgs;
 
     fn name() -> &'static str {
-        "git_init"
+        kodegen_mcp_schema::git::GIT_INIT
     }
 
     fn description() -> &'static str {

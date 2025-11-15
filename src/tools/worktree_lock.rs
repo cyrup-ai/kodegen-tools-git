@@ -15,7 +15,7 @@ impl Tool for GitWorktreeLockTool {
     type PromptArgs = GitWorktreeLockPromptArgs;
 
     fn name() -> &'static str {
-        "git_worktree_lock"
+        kodegen_mcp_schema::git::GIT_WORKTREE_LOCK
     }
 
     fn description() -> &'static str {

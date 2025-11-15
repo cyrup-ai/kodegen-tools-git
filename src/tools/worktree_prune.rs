@@ -15,7 +15,7 @@ impl Tool for GitWorktreePruneTool {
     type PromptArgs = GitWorktreePrunePromptArgs;
 
     fn name() -> &'static str {
-        "git_worktree_prune"
+        kodegen_mcp_schema::git::GIT_WORKTREE_PRUNE
     }
 
     fn description() -> &'static str {

@@ -15,7 +15,7 @@ impl Tool for GitWorktreeRemoveTool {
     type PromptArgs = GitWorktreeRemovePromptArgs;
 
     fn name() -> &'static str {
-        "git_worktree_remove"
+        kodegen_mcp_schema::git::GIT_WORKTREE_REMOVE
     }
 
     fn description() -> &'static str {

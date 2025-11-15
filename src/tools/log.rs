@@ -16,7 +16,7 @@ impl Tool for GitLogTool {
     type PromptArgs = GitLogPromptArgs;
 
     fn name() -> &'static str {
-        "git_log"
+        kodegen_mcp_schema::git::GIT_LOG
     }
 
     fn description() -> &'static str {

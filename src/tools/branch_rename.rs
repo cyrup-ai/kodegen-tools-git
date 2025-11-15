@@ -15,7 +15,7 @@ impl Tool for GitBranchRenameTool {
     type PromptArgs = GitBranchRenamePromptArgs;
 
     fn name() -> &'static str {
-        "git_branch_rename"
+        kodegen_mcp_schema::git::GIT_BRANCH_RENAME
     }
 
     fn description() -> &'static str {

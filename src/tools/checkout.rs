@@ -15,7 +15,7 @@ impl Tool for GitCheckoutTool {
     type PromptArgs = GitCheckoutPromptArgs;
 
     fn name() -> &'static str {
-        "git_checkout"
+        kodegen_mcp_schema::git::GIT_CHECKOUT
     }
 
     fn description() -> &'static str {

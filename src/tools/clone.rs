@@ -14,7 +14,7 @@ impl Tool for GitCloneTool {
     type PromptArgs = GitClonePromptArgs;
 
     fn name() -> &'static str {
-        "git_clone"
+        kodegen_mcp_schema::git::GIT_CLONE
     }
 
     fn description() -> &'static str {

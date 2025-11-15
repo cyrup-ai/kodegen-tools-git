@@ -15,7 +15,7 @@ impl Tool for GitWorktreeAddTool {
     type PromptArgs = GitWorktreeAddPromptArgs;
 
     fn name() -> &'static str {
-        "git_worktree_add"
+        kodegen_mcp_schema::git::GIT_WORKTREE_ADD
     }
 
     fn description() -> &'static str {

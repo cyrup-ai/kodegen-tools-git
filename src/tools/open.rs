@@ -15,7 +15,7 @@ impl Tool for GitOpenTool {
     type PromptArgs = GitOpenPromptArgs;
 
     fn name() -> &'static str {
-        "git_open"
+        kodegen_mcp_schema::git::GIT_OPEN
     }
 
     fn description() -> &'static str {

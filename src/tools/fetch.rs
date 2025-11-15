@@ -15,7 +15,7 @@ impl Tool for GitFetchTool {
     type PromptArgs = GitFetchPromptArgs;
 
     fn name() -> &'static str {
-        "git_fetch"
+        kodegen_mcp_schema::git::GIT_FETCH
     }
 
     fn description() -> &'static str {

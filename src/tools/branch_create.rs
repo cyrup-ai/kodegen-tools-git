@@ -15,7 +15,7 @@ impl Tool for GitBranchCreateTool {
     type PromptArgs = GitBranchCreatePromptArgs;
 
     fn name() -> &'static str {
-        "git_branch_create"
+        kodegen_mcp_schema::git::GIT_BRANCH_CREATE
     }
 
     fn description() -> &'static str {

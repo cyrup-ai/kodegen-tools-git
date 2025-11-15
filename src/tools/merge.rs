@@ -15,7 +15,7 @@ impl Tool for GitMergeTool {
     type PromptArgs = GitMergePromptArgs;
 
     fn name() -> &'static str {
-        "git_merge"
+        kodegen_mcp_schema::git::GIT_MERGE
     }
 
     fn description() -> &'static str {

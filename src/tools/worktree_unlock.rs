@@ -15,7 +15,7 @@ impl Tool for GitWorktreeUnlockTool {
     type PromptArgs = GitWorktreeUnlockPromptArgs;
 
     fn name() -> &'static str {
-        "git_worktree_unlock"
+        kodegen_mcp_schema::git::GIT_WORKTREE_UNLOCK
     }
 
     fn description() -> &'static str {
