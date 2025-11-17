@@ -20,29 +20,28 @@ pub use runtime::{AsyncStream, AsyncTask, EmitterBuilder};
 
 // Re-export Git operations
 pub use operations::{
-    AddOpts, BranchInfo, BranchOpts, CheckoutOpts, CloneOpts, CommitOpts, DetailedCommitInfo,
-    FetchOpts, GitUrl, LogOpts, MergeOpts, MergeOutcome, PushOpts, PushResult, RemoteInfo,
-    RepoPaths, RepositoryInfo, ResetMode, ResetOpts, Signature, TagInfo, TagOpts,
-    WorktreeAddOpts, WorktreeInfo, WorktreeLockOpts, WorktreeRemoveOpts, add, branch,
-    check_remote_branch_exists, check_remote_tag_exists, checkout, clone_repo, commit, create_tag,
-    current_branch, delete_branch, delete_remote_branch, delete_remote_tag, delete_tag,
-    discover_repo, fetch, get_commit_details, get_repo_paths, head_commit, init_bare_repo,
-    init_repo, is_clean, is_detached, is_repository, list_branches, list_remotes, list_tags,
-    list_worktrees, log, merge, open_repo, parse_git_url, probe_repository, push,
-    push_current_branch, push_tags, remote_exists, rename_branch, reset, reset_hard, reset_mixed,
-    reset_soft, tag_exists, worktree_add, worktree_lock, worktree_prune, worktree_remove,
-    worktree_unlock,
+    AddOpts, BranchInfo, BranchOpts, ChangeType, CheckoutOpts, CloneOpts, CommitOpts, CommitResult,
+    DetailedCommitInfo, DiffOpts, DiffStats, FetchOpts, FileDiffStats, GitUrl, LogOpts, MergeOpts,
+    MergeOutcome, PullOpts, PullResult, PushOpts, PushResult, RemoteAddOpts, RemoteInfo, RepoPaths,
+    RepositoryInfo, ResetMode, ResetOpts, Signature, TagInfo, TagOpts, WorktreeAddOpts, WorktreeInfo,
+    WorktreeLockOpts, WorktreeRemoveOpts, add, add_remote, branch, check_remote_branch_exists,
+    check_remote_tag_exists, checkout, clone_repo, commit, create_tag, current_branch, delete_branch,
+    delete_remote_branch, delete_remote_tag, delete_tag, diff, discover_repo, fetch,
+    get_commit_details, get_repo_paths, head_commit, init_bare_repo, init_repo, is_clean,
+    is_detached, is_repository, list_branches, list_remotes, list_tags, list_worktrees, log, merge,
+    open_repo, parse_git_url, probe_repository, pull, push, push_current_branch, push_tags,
+    remote_exists, remove_remote, rename_branch, reset, reset_hard, reset_mixed, reset_soft,
+    stash_pop, stash_save, StashInfo, StashOpts, tag_exists, worktree_add, worktree_lock,
+    worktree_prune, worktree_remove, worktree_unlock,
 };
 
 // Re-export MCP tools
 pub use tools::{
-    GitAddTool, GitBranchCreateTool,
-    GitBranchDeleteTool, GitBranchListTool,
-    GitBranchRenameTool, GitCheckoutTool, GitCloneTool,
-    GitCommitTool, GitDiscoverTool, GitFetchTool,
-    GitInitTool, GitLogTool, GitMergeTool,
-    GitOpenTool, GitWorktreeAddTool, GitWorktreeListTool,
-    GitWorktreeLockTool, GitWorktreePruneTool,
+    GitAddTool, GitBranchCreateTool, GitBranchDeleteTool, GitBranchListTool, GitBranchRenameTool,
+    GitCheckoutTool, GitCloneTool, GitCommitTool, GitDiffTool, GitDiscoverTool, GitFetchTool,
+    GitInitTool, GitLogTool, GitMergeTool, GitOpenTool, GitPullTool, GitPushTool, GitRemoteAddTool,
+    GitRemoteListTool, GitRemoteRemoveTool, GitResetTool, GitStashTool, GitStatusTool, GitTagTool,
+    GitWorktreeAddTool, GitWorktreeListTool, GitWorktreeLockTool, GitWorktreePruneTool,
     GitWorktreeRemoveTool, GitWorktreeUnlockTool,
 };
 
@@ -302,7 +301,7 @@ pub async fn start_server(
             let mut prompt_router = PromptRouter::new();
             let managers = Managers::new();
 
-            // Register all 20 git tools (zero-state structs, no constructors)
+            // Register all 27 git tools (zero-state structs, no constructors)
 
             // Repository initialization (4 tools)
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitInitTool);
@@ -316,15 +315,21 @@ pub async fn start_server(
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchListTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchRenameTool);
 
-            // Core git operations (4 tools)
+            // Core git operations (5 tools)
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCommitTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitLogTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitDiffTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitAddTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCheckoutTool);
 
-            // Remote operations (2 tools)
+            // Remote operations (7 tools)
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitFetchTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitMergeTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitPullTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitPushTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteAddTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteListTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteRemoveTool);
 
             // Worktree operations (6 tools)
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeAddTool);
@@ -333,6 +338,12 @@ pub async fn start_server(
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeLockTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeUnlockTool);
             (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreePruneTool);
+
+            // Other operations (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitResetTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStashTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStatusTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitTagTool);
 
             Ok(RouterSet::new(tool_router, prompt_router, managers))
         })

@@ -52,12 +52,13 @@ impl Tool for GitBranchDeleteTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
+        // Terminal summary with colored output and icons
+        let force_str = if args.force { "yes" } else { "no" };
         let summary = format!(
-            "✓ Branch deleted\n\n\
-             Branch: {}{}",
+            "\x1b[31m󰆴 Branch Deleted: {}\x1b[0m\n\
+             󰋽 Force: {}",
             args.branch,
-            if args.force { " (forced)" } else { "" }
+            force_str
         );
         contents.push(Content::text(summary));
 

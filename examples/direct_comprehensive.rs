@@ -416,7 +416,7 @@ async fn scenario_commit(repo: &TestRepository) -> Result<ScenarioStats> {
     .context("Failed to create initial commit")?;
     stats.operations_count += 1;
 
-    println!("[COMMIT] Created commit: {commit_id}");
+    println!("[COMMIT] Created commit: {:?}", commit_id);
 
     let index_stats = repo.verify_index().await?;
     stats.index_verifications += 1;
@@ -463,7 +463,7 @@ async fn scenario_commit(repo: &TestRepository) -> Result<ScenarioStats> {
     .context("Failed to create second commit")?;
     stats.operations_count += 1;
 
-    println!("[COMMIT] Created commit: {commit_id2}");
+    println!("[COMMIT] Created commit: {:?}", commit_id2);
 
     repo.verify_index().await?;
     stats.index_verifications += 1;

@@ -70,27 +70,17 @@ impl Tool for GitWorktreeListTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let worktree_list = if worktrees.is_empty() {
-            "No worktrees found".to_string()
-        } else {
-            worktrees.iter()
-                .map(|wt| {
-                    let main_indicator = if wt.is_main { " (main)" } else { "" };
-                    let locked_indicator = if wt.is_locked { " [locked]" } else { "" };
-                    let branch_info = wt.head_branch.as_ref()
-                        .map(|b| format!(" - {}", b))
-                        .unwrap_or_else(|| " - detached".to_string());
-                    format!("  • {}{}{}{}", wt.path.display(), main_indicator, branch_info, locked_indicator)
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
+        // Terminal summary with ANSI color codes and Nerd Font icons
+        let count = worktrees.len();
+        let main_path = worktrees.iter()
+            .find(|wt| wt.is_main)
+            .map(|wt| wt.path.display().to_string())
+            .unwrap_or_else(|| "none".to_string());
 
         let summary = format!(
-            "✓ Worktrees listed ({})\n\n{}",
-            worktrees.len(),
-            worktree_list
+            "\x1b[36m Worktrees\x1b[0m\n\
+              Total: {} · Main: {}",
+            count, main_path
         );
         contents.push(Content::text(summary));
 

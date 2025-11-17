@@ -58,18 +58,12 @@ impl Tool for GitFetchTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let mut details = vec![format!("Remote: {}", args.remote)];
-        if args.prune {
-            details.push("Pruned stale refs".to_string());
-        }
-        if !args.refspecs.is_empty() {
-            details.push(format!("Refspecs: {}", args.refspecs.join(", ")));
-        }
+        // Terminal summary (2 lines with ANSI formatting)
+        let prune_status = if args.prune { "yes" } else { "no" };
 
         let summary = format!(
-            "✓ Fetch completed\n\n{}",
-            details.join("\n")
+            "\x1b[36m󰇚 Fetch: {}\x1b[0m\n 󰗚 Refs updated: synced · Prune: {}",
+            args.remote, prune_status
         );
         contents.push(Content::text(summary));
 

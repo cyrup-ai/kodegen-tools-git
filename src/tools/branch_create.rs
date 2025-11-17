@@ -61,18 +61,13 @@ impl Tool for GitBranchCreateTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let mut details = vec![format!("Branch: {}", args.branch)];
-        if let Some(ref from) = args.from_branch {
-            details.push(format!("From: {}", from));
-        }
-        if args.checkout {
-            details.push("Checked out: yes".to_string());
-        }
-
+        // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
-            "✓ Branch created\n\n{}",
-            details.join("\n")
+            "󰊢 \x1b[32mBranch Created: {}\x1b[0m\n\
+              From: {} · Checkout: {}",
+            args.branch,
+            args.from_branch.as_deref().unwrap_or("HEAD"),
+            if args.checkout { "yes" } else { "no" }
         );
         contents.push(Content::text(summary));
 

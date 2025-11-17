@@ -1,38 +1,38 @@
-//! Git branch renaming tool
+//! Git remote remove tool
 
 use kodegen_mcp_tool::{Tool, error::McpError};
-use kodegen_mcp_schema::git::{GitBranchRenameArgs, GitBranchRenamePromptArgs};
+use kodegen_mcp_schema::git::{GitRemoteRemoveArgs, GitRemoteRemovePromptArgs};
 use rmcp::model::{PromptArgument, PromptMessage, Content};
 use serde_json::json;
 use std::path::Path;
 
-/// Tool for renaming Git branches
+/// Tool for removing remote repositories
 #[derive(Clone)]
-pub struct GitBranchRenameTool;
+pub struct GitRemoteRemoveTool;
 
-impl Tool for GitBranchRenameTool {
-    type Args = GitBranchRenameArgs;
-    type PromptArgs = GitBranchRenamePromptArgs;
+impl Tool for GitRemoteRemoveTool {
+    type Args = GitRemoteRemoveArgs;
+    type PromptArgs = GitRemoteRemovePromptArgs;
 
     fn name() -> &'static str {
-        kodegen_mcp_schema::git::GIT_BRANCH_RENAME
+        kodegen_mcp_schema::git::GIT_REMOTE_REMOVE
     }
 
     fn description() -> &'static str {
-        "Rename a branch in a Git repository. \
-         Automatically updates HEAD if renaming the current branch."
+        "Remove a configured remote repository. \
+         Deletes the remote from repository configuration."
     }
 
     fn read_only() -> bool {
-        false // Modifies repository
+        false // Modifies repository configuration
     }
 
     fn destructive() -> bool {
-        false // Renames, doesn't delete
+        true // Removes configuration entries
     }
 
     fn idempotent() -> bool {
-        false // Will fail if already renamed
+        false // Cannot remove non-existent remote
     }
 
     async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
@@ -44,34 +44,25 @@ impl Tool for GitBranchRenameTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        // Rename branch
-        crate::rename_branch(
-            repo,
-            args.old_name.clone(),
-            args.new_name.clone(),
-            args.force,
-        )
-        .await
-        .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
-        .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
+        // Execute remove
+        crate::remove_remote(repo, &args.name)
+            .await
+            .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let force_text = if args.force { "yes" } else { "no" };
+        // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
-            "\x1b[33m Branch Renamed: {} → {}\x1b[0m\n\
-              Force: {}",
-            args.old_name, args.new_name, force_text
+            "\x1b[32m ✓ Remote Removed\x1b[0m\n\
+             {} deleted from configuration",
+            args.name
         );
         contents.push(Content::text(summary));
 
         // JSON metadata
         let metadata = json!({
             "success": true,
-            "old_name": args.old_name,
-            "new_name": args.new_name,
-            "message": format!("Renamed branch '{}' to '{}'", args.old_name, args.new_name)
+            "remote_name": args.name
         });
         let json_str = serde_json::to_string_pretty(&metadata)
             .unwrap_or_else(|_| "{}".to_string());

@@ -56,11 +56,15 @@ impl Tool for GitInitTool {
 
         // Terminal summary
         let repo_type = if args.bare { "bare" } else { "normal" };
+
+        // Line 1: Green colored init action with path
+        // Line 2: White metadata line with type and path
         let summary = format!(
-            "✓ Git repository initialized\n\n\
-             Type: {}\n\
-             Path: {}",
-            repo_type, args.path
+            "\x1b[32m Init Repository: {}\x1b[0m\n\
+              Type: {} · Path: {}",
+            args.path,
+            repo_type,
+            args.path
         );
         contents.push(Content::text(summary));
 
@@ -72,7 +76,7 @@ impl Tool for GitInitTool {
             "message": format!("Initialized {} Git repository at {}", repo_type, args.path)
         });
         let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
+            .map_err(|e| McpError::Other(anyhow::anyhow!("Failed to serialize metadata: {e}")))?;
         contents.push(Content::text(json_str));
 
         Ok(contents)

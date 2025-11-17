@@ -59,15 +59,16 @@ impl Tool for GitWorktreeAddTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let mut details = vec![format!("Path: {}", created_path.display())];
-        if let Some(ref branch) = args.branch {
-            details.push(format!("Branch: {}", branch));
-        }
+        // Terminal summary with ANSI colors and icons
+        let branch_display = args.branch.as_deref().unwrap_or("(detached)");
+        let checkout_ref = args.branch.as_deref().unwrap_or("HEAD");
 
         let summary = format!(
-            "✓ Worktree created\n\n{}",
-            details.join("\n")
+            "\x1b[32m Worktree Added: {}\x1b[0m\n\
+              Branch: {} · Checkout: {}",
+            created_path.display(),
+            branch_display,
+            checkout_ref
         );
         contents.push(Content::text(summary));
 

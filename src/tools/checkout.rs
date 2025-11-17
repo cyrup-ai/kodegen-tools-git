@@ -6,6 +6,32 @@ use rmcp::model::{PromptArgument, PromptMessage, Content};
 use serde_json::json;
 use std::path::Path;
 
+/// Detect reference type from target string
+///
+/// Uses heuristics to determine if the target is a commit, tag, or branch:
+/// - Commit: 40 hex characters (full SHA) or 7-39 hex characters (short SHA)
+/// - Tag: Starts with 'v' followed by digits (version pattern like v1.0.0)
+/// - Branch: Everything else (default)
+fn detect_ref_type(target: &str) -> &'static str {
+    // Check if it's a commit hash (7-40 hex characters)
+    if target.len() >= 7 && target.len() <= 40
+        && target.chars().all(|c| c.is_ascii_hexdigit())
+    {
+        return "commit";
+    }
+
+    // Check if it looks like a version tag (starts with 'v' followed by digit)
+    if target.starts_with('v') && target.len() > 1
+        && let Some(c) = target.chars().nth(1)
+        && c.is_ascii_digit()
+    {
+        return "tag";
+    }
+
+    // Default to branch
+    "branch"
+}
+
 /// Tool for checking out Git references
 #[derive(Clone)]
 pub struct GitCheckoutTool;
@@ -82,10 +108,23 @@ impl Tool for GitCheckoutTool {
             format!("Checked out '{}'", args.target)
         };
 
+        // Detect reference type
+        let ref_type = if args.create {
+            "branch"
+        } else {
+            detect_ref_type(&args.target)
+        };
+
+        let create_str = if args.create { "yes" } else { "no" };
+
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let summary = format!("✓ {}\n\nTarget: {}", message, args.target);
+        // Terminal summary with ANSI blue color and Nerd Font icons
+        let summary = format!(
+            "\x1b[34m\u{E725} Checkout: {}\x1b[0m\n\
+             \u{E948} Type: {} · Create: {}",
+            args.target, ref_type, create_str
+        );
         contents.push(Content::text(summary));
 
         // JSON metadata

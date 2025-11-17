@@ -19,11 +19,18 @@ pub mod branch_rename;
 pub mod add;
 pub mod checkout;
 pub mod commit;
+pub mod diff;
 pub mod log;
 
 // Remote Operations
 pub mod fetch;
 pub mod merge;
+pub mod pull;
+pub mod push;
+pub mod remote_add;
+pub mod remote_list;
+pub mod remote_remove;
+pub mod reset;
 
 // Worktree Operations
 pub mod worktree_add;
@@ -32,6 +39,15 @@ pub mod worktree_lock;
 pub mod worktree_prune;
 pub mod worktree_remove;
 pub mod worktree_unlock;
+
+// Status Operations
+pub mod status;
+
+// Stash Operations
+pub mod stash;
+
+// Tag Operations
+pub mod tag;
 
 // Re-export tools
 pub use clone::GitCloneTool;
@@ -47,10 +63,17 @@ pub use branch_rename::GitBranchRenameTool;
 pub use add::GitAddTool;
 pub use checkout::GitCheckoutTool;
 pub use commit::GitCommitTool;
+pub use diff::GitDiffTool;
 pub use log::GitLogTool;
 
 pub use fetch::GitFetchTool;
 pub use merge::GitMergeTool;
+pub use pull::GitPullTool;
+pub use push::GitPushTool;
+pub use remote_add::GitRemoteAddTool;
+pub use remote_list::GitRemoteListTool;
+pub use remote_remove::GitRemoteRemoveTool;
+pub use reset::GitResetTool;
 
 pub use worktree_add::GitWorktreeAddTool;
 pub use worktree_list::GitWorktreeListTool;
@@ -58,3 +81,7 @@ pub use worktree_lock::GitWorktreeLockTool;
 pub use worktree_prune::GitWorktreePruneTool;
 pub use worktree_remove::GitWorktreeRemoveTool;
 pub use worktree_unlock::GitWorktreeUnlockTool;
+
+pub use status::GitStatusTool;
+pub use stash::GitStashTool;
+pub use tag::GitTagTool;

@@ -7,6 +7,13 @@ use chrono::{DateTime, Utc};
 
 use crate::{CommitId, GitError, GitResult, RepoHandle};
 
+/// Result of a commit operation containing ID and file count
+#[derive(Debug, Clone)]
+pub struct CommitResult {
+    pub id: CommitId,
+    pub file_count: usize,
+}
+
 /// Git signature (author/committer) information.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signature {
@@ -110,7 +117,7 @@ impl CommitOpts {
 }
 
 /// Execute commit operation with the given options.
-pub async fn commit(repo: RepoHandle, opts: CommitOpts) -> GitResult<CommitId> {
+pub async fn commit(repo: RepoHandle, opts: CommitOpts) -> GitResult<CommitResult> {
     let repo_clone = repo.clone_inner();
 
     tokio::task::spawn_blocking(move || {
@@ -228,6 +235,9 @@ pub async fn commit(repo: RepoHandle, opts: CommitOpts) -> GitResult<CommitId> {
         } else {
             index
         };
+
+        // Count files in the index for the commit result
+        let file_count = index.entries().len();
 
         // Create tree editor to build hierarchical tree structure
         let mut editor = gix::objs::tree::Editor::new(
@@ -351,7 +361,10 @@ pub async fn commit(repo: RepoHandle, opts: CommitOpts) -> GitResult<CommitId> {
             )
             .map_err(|e| GitError::Gix(e.into()))?;
 
-        Ok(commit_id.detach())
+        Ok(CommitResult {
+            id: commit_id.detach(),
+            file_count,
+        })
     })
     .await
     .map_err(|e| GitError::InvalidInput(format!("Task join error: {e}")))?

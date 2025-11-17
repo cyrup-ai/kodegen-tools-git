@@ -55,19 +55,21 @@ impl Tool for GitCommitTool {
         }
 
         // Create commit
-        let commit_id = crate::commit(repo, opts)
+        let commit_result = crate::commit(repo, opts)
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
+        let commit_id = commit_result.id;
+        let file_count = commit_result.file_count;
         let mut contents = Vec::new();
 
-        // Terminal summary
+        // Terminal summary (2 lines with ANSI formatting)
         let commit_short = &commit_id.to_string()[..7.min(commit_id.to_string().len())];
+        let first_line = args.message.lines().next().unwrap_or("").to_string();
+
         let summary = format!(
-            "✓ Commit created\n\n\
-             Commit: {}\n\
-             Message: {}",
-            commit_short, args.message
+            "\x1b[32m\u{e725}  Commit: {}\x1b[0m\n\u{f292}  SHA: {} · Files: {}",
+            first_line, commit_short, file_count
         );
         contents.push(Content::text(summary));
 
@@ -75,7 +77,8 @@ impl Tool for GitCommitTool {
         let metadata = json!({
             "success": true,
             "commit_id": commit_id.to_string(),
-            "message": args.message
+            "message": args.message,
+            "file_count": file_count
         });
         let json_str = serde_json::to_string_pretty(&metadata)
             .unwrap_or_else(|_| "{}".to_string());

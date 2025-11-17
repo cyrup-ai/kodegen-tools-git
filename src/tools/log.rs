@@ -91,36 +91,29 @@ impl Tool for GitLogTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
+        // ========================================
+        // Content[0]: Human-Readable Summary
+        // ========================================
         let summary = if commits.is_empty() {
-            "✓ No commits found".to_string()
+            "\x1b[36m󰄶 Commit History\x1b[0m\n 󰗚 Commits: 0 · No commits found".to_string()
         } else {
-            let commit_list = commits.iter()
-                .take(5)
-                .map(|c| {
-                    let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
-                    let summary_text = c.get("summary").and_then(|v| v.as_str()).unwrap_or("");
-                    format!("  • {} {}", &id[..7.min(id.len())], summary_text)
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            
-            let more = if commits.len() > 5 {
-                format!("\n  ... and {} more", commits.len() - 5)
-            } else {
-                String::new()
-            };
+            let latest_message = commits
+                .first()
+                .and_then(|c| c.get("summary"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             format!(
-                "✓ Commits found ({})\n\n{}{}",
+                "\x1b[36m󰄶 Commit History\x1b[0m\n 󰗚 Commits: {} · Latest: {}",
                 commits.len(),
-                commit_list,
-                more
+                latest_message
             )
         };
         contents.push(Content::text(summary));
 
-        // JSON metadata
+        // ========================================
+        // Content[1]: Machine-Parseable JSON
+        // ========================================
         let metadata = json!({
             "success": true,
             "commits": commits,

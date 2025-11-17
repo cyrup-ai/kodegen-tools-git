@@ -50,28 +50,43 @@ impl Tool for GitCloneTool {
             opts = opts.branch(branch);
         }
 
-        let _repo = crate::clone_repo(opts)
+        let repo = crate::clone_repo(opts)
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
+        // Get the actual branch name from HEAD
+        let branch_name = if let Some(ref b) = args.branch {
+            b.clone()
+        } else {
+            // Query the repository HEAD to get the default branch
+            repo.raw()
+                .head_name()
+                .ok()
+                .flatten()
+                .map(|name| name.shorten().to_string())
+                .unwrap_or_else(|| "HEAD".to_string())
+        };
+
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let mut details = vec![
-            format!("URL: {}", args.url),
-            format!("Path: {}", args.path),
+        // Build optional metadata
+        let mut metadata_parts = vec![
+            format!("Destination: {}", args.path),
+            format!("Branch: {}", branch_name),
         ];
-        if let Some(ref branch) = args.branch {
-            details.push(format!("Branch: {}", branch));
-        }
-        if args.depth.is_some() {
-            details.push("Clone type: shallow".to_string());
+
+        if let Some(depth) = args.depth {
+            metadata_parts.push(format!("Depth: {}", depth));
         }
 
+        // Line 1: Green colored clone action with URL
+        // Line 2: White metadata line
         let summary = format!(
-            "✓ Repository cloned successfully\n\n{}",
-            details.join("\n")
+            "\x1b[32m󰇚 Clone: {}\x1b[0m\n\
+             󰉋 {}",
+            args.url,
+            metadata_parts.join(" · ")
         );
         contents.push(Content::text(summary));
 
@@ -80,8 +95,9 @@ impl Tool for GitCloneTool {
             "success": true,
             "url": args.url,
             "path": args.path,
-            "branch": args.branch,
+            "branch": branch_name,
             "shallow": args.depth.is_some(),
+            "depth": args.depth,
             "message": format!("Cloned {} to {}", args.url, args.path)
         });
         let json_str = serde_json::to_string_pretty(&metadata)

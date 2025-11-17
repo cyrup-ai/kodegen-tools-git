@@ -30,11 +30,13 @@ async fn main() -> Result<()> {
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchListTool);
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchRenameTool);
 
-        // Core git operations (4 tools)
+        // Core git operations (6 tools)
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCommitTool);
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitLogTool);
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitAddTool);
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCheckoutTool);
+        (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitResetTool);
+        (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStatusTool);
 
         // Remote operations (2 tools)
         (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitFetchTool);

@@ -56,12 +56,12 @@ impl Tool for GitMergeTool {
 
         let mut contents = Vec::new();
 
-        let (merge_type, commit_id, summary_msg) = match outcome {
+        let (merge_type, commit_id) = match outcome {
             crate::MergeOutcome::FastForward(id) => {
-                ("fast_forward", id.to_string(), "Fast-forward merge")
+                ("fast_forward", id.to_string())
             },
             crate::MergeOutcome::MergeCommit(id) => {
-                ("merge_commit", id.to_string(), "Merge commit created")
+                ("merge_commit", id.to_string())
             },
             crate::MergeOutcome::AlreadyUpToDate => {
                 // Terminal summary
@@ -82,14 +82,12 @@ impl Tool for GitMergeTool {
             }
         };
 
-        // Terminal summary for successful merges
-        let commit_short = &commit_id[..7.min(commit_id.len())];
+        // Terminal summary with ANSI yellow color and Nerd Font icons
+        // Successful merges have no conflicts (conflicts cause errors in the merge operation)
         let summary = format!(
-            "✓ {}\n\n\
-             Branch: {}\n\
-             Type: {}\n\
-             Commit: {}",
-            summary_msg, args.branch, merge_type, commit_short
+            "\x1b[33m\u{e727} Merge: {}\x1b[0m\n\
+             \u{2139} Strategy: {} · Conflicts: 0",
+            args.branch, merge_type
         );
         contents.push(Content::text(summary));
 

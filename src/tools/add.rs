@@ -69,19 +69,29 @@ impl Tool for GitAddTool {
 
         let mut contents = Vec::new();
 
-        // Terminal summary
-        let summary = if args.all {
-            "✓ Files staged\n\nAll modified files staged".to_string()
+        // Build pattern string for display
+        let pattern = if args.all {
+            "all".to_string()
         } else {
-            format!(
-                "✓ Files staged ({})\n\n{}",
-                count,
-                paths_to_stage.iter()
-                    .map(|p| format!("  • {}", p))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )
+            // Show first 3 paths, then "+N more" if exceeds
+            let shown = paths_to_stage
+                .iter()
+                .take(3)
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            if paths_to_stage.len() > 3 {
+                format!("{} +{} more", shown, paths_to_stage.len() - 3)
+            } else {
+                shown
+            }
         };
+
+        // Terminal summary with ANSI colors and Nerd Font icons
+        let summary = format!(
+            "\x1b[32m✚ Staged Changes\x1b[0m\n  📄 Files: {} · Pattern: {}",
+            count, pattern
+        );
         contents.push(Content::text(summary));
 
         // JSON metadata

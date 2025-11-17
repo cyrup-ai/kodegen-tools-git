@@ -56,11 +56,12 @@ impl Tool for GitWorktreeRemoveTool {
         let mut contents = Vec::new();
 
         // Terminal summary
+        let force_display = if args.force { "yes" } else { "no" };
         let summary = format!(
-            "✓ Worktree removed\n\n\
-             Path: {}{}",
+            "\x1b[31m Worktree Removed: {}\x1b[0m\n\
+              Force: {}",
             args.worktree_path,
-            if args.force { " (forced)" } else { "" }
+            force_display
         );
         contents.push(Content::text(summary));
 
