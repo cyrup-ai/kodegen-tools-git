@@ -54,19 +54,11 @@ impl Tool for GitWorktreePruneTool {
         let mut contents = Vec::new();
 
         // Terminal summary
-        let summary = if pruned.is_empty() {
-            "✓ No stale worktrees to prune".to_string()
-        } else {
-            let pruned_list = pruned.iter()
-                .map(|name| format!("  • {}", name))
-                .collect::<Vec<_>>()
-                .join("\n");
-            format!(
-                "✓ Pruned {} stale worktree(s)\n\n{}",
-                pruned.len(),
-                pruned_list
-            )
-        };
+        let summary = format!(
+            "\x1b[31m󰍳 Worktrees Pruned\x1b[0m\n\
+             󰋽 Removed: {} stale worktrees",
+            pruned.len()
+        );
         contents.push(Content::text(summary));
 
         // JSON metadata

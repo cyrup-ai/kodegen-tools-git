@@ -59,14 +59,11 @@ impl Tool for GitWorktreeLockTool {
         let mut contents = Vec::new();
 
         // Terminal summary
-        let mut details = vec![format!("Worktree: {}", args.worktree_path)];
-        if let Some(ref reason) = args.reason {
-            details.push(format!("Reason: {}", reason));
-        }
-
         let summary = format!(
-            "✓ Worktree locked\n\n{}",
-            details.join("\n")
+            "\x1b[33m Worktree Locked: {}\x1b[0m\n\
+              Reason: {}",
+            args.worktree_path,
+            args.reason.as_deref().unwrap_or("none")
         );
         contents.push(Content::text(summary));
 

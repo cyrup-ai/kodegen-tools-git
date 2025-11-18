@@ -54,8 +54,8 @@ impl Tool for GitWorktreeUnlockTool {
 
         // Terminal summary
         let summary = format!(
-            "✓ Worktree unlocked\n\n\
-             Path: {}",
+            "\x1b[32m Worktree Unlocked: {}\x1b[0m\n\
+              Status: unlocked",
             args.worktree_path
         );
         contents.push(Content::text(summary));

@@ -39,18 +39,25 @@ impl Tool for GitDiscoverTool {
     async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
-        let _repo = crate::discover_repo(path)
+        let repo = crate::discover_repo(path)
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
+        // Extract the working directory path from the discovered repository
+        let repo_root = repo.raw()
+            .workdir()
+            .ok_or_else(|| McpError::Other(anyhow::anyhow!("Repository has no working directory")))?
+            .display()
+            .to_string();
+
         let mut contents = Vec::new();
 
-        // Terminal summary
+        // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
-            "✓ Git repository discovered\n\n\
-             Searched from: {}",
-            args.path
+            "\x1b[36m Discover Repository: {}\x1b[0m\n\
+              Started from: {} · Found: {}",
+            repo_root, args.path, repo_root
         );
         contents.push(Content::text(summary));
 
