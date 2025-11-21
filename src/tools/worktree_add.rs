@@ -1,6 +1,6 @@
 //! Git worktree add tool
 
-use kodegen_mcp_tool::{Tool, error::McpError};
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitWorktreeAddArgs, GitWorktreeAddPromptArgs};
 use rmcp::model::{PromptArgument, PromptMessage, Content};
 use serde_json::json;
@@ -35,7 +35,7 @@ impl Tool for GitWorktreeAddTool {
         false // Fails if worktree exists
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository

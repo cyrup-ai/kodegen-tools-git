@@ -1,6 +1,6 @@
 //! Git worktree remove tool
 
-use kodegen_mcp_tool::{Tool, error::McpError};
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitWorktreeRemoveArgs, GitWorktreeRemovePromptArgs};
 use rmcp::model::{PromptArgument, PromptMessage, Content};
 use serde_json::json;
@@ -35,7 +35,7 @@ impl Tool for GitWorktreeRemoveTool {
         false // Fails if worktree doesn't exist
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository

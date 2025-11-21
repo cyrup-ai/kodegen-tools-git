@@ -1,7 +1,7 @@
 //! Git repository opening tool
 
 use gix::bstr::ByteSlice;
-use kodegen_mcp_tool::{Tool, error::McpError};
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitOpenArgs, GitOpenPromptArgs};
 use rmcp::model::{PromptArgument, PromptMessage, Content};
 use serde_json::json;
@@ -36,7 +36,7 @@ impl Tool for GitOpenTool {
         true // Opening same repo multiple times is safe
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
         let path = Path::new(&args.path);
 
         let repo = crate::open_repo(path)

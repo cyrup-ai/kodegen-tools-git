@@ -1,6 +1,6 @@
 //! Git repository cloning tool
 
-use kodegen_mcp_tool::{Tool, error::McpError};
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitCloneArgs, GitClonePromptArgs};
 use rmcp::model::{PromptArgument, PromptMessage, Content};
 use serde_json::json;
@@ -39,7 +39,7 @@ impl Tool for GitCloneTool {
         true // Makes network requests
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
         let mut opts = crate::CloneOpts::new(&args.url, &args.path);
 
         if let Some(depth) = args.depth {
