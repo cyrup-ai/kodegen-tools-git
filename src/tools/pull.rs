@@ -3,7 +3,7 @@
 use gix::bstr::ByteSlice;
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitPullArgs, GitPullPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -110,10 +110,69 @@ impl Tool for GitPullTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "example_type".to_string(),
+            title: None,
+            description: Some(
+                "Optional example type: 'basic', 'fast_forward', 'merge', or 'workflow'"
+                    .to_string(),
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I pull changes from a remote repository?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_pull tool fetches and integrates changes from a remote repository:\n\n\
+                     1. Basic pull (fetch + merge from tracked remote):\n\
+                        git_pull({\"path\": \".\"})\n\n\
+                     2. Pull from specific remote and branch:\n\
+                        git_pull({\"path\": \".\", \"remote\": \"origin\", \"branch\": \"main\"})\n\n\
+                     3. Fast-forward only (fails if merge would be needed):\n\
+                        git_pull({\"path\": \".\", \"ff_only\": true})\n\n\
+                     4. Pull without fast-forward (always create merge commit):\n\
+                        git_pull({\"path\": \".\", \"no_ff\": true})\n\n\
+                     Parameters (all optional with sensible defaults):\n\
+                     - path: Repository directory (default: current directory)\n\
+                     - remote: Remote name (default: \"origin\")\n\
+                     - branch: Branch to pull from (default: current branch's tracked remote)\n\
+                     - ff_only: Only allow fast-forward merges (default: false)\n\
+                     - no_ff: Always create merge commit even if fast-forward possible (default: false)\n\n\
+                     Merge strategies:\n\
+                     1. Fast-forward (default when possible):\n\
+                        - No merge commit created\n\
+                        - Branch pointer simply moves forward\n\
+                        - Cleanest history but only works when no local commits\n\n\
+                     2. Merge commit (when ff not possible or no_ff=true):\n\
+                        - Creates explicit merge commit\n\
+                        - Preserves both histories\n\
+                        - May trigger merge conflicts\n\n\
+                     Common workflows:\n\
+                     - Update feature branch: git_pull({\"path\": \".\", \"branch\": \"feature\"})\n\
+                     - Sync with main: git_pull({\"path\": \".\", \"remote\": \"origin\", \"branch\": \"main\"})\n\
+                     - Safe pull (no conflicts): git_pull({\"path\": \".\", \"ff_only\": true})\n\
+                     - Force merge commit: git_pull({\"path\": \".\", \"no_ff\": true})\n\n\
+                     Safety notes:\n\
+                     - Uncommitted changes may cause conflicts - commit or stash first\n\
+                     - ff_only prevents unexpected merges in automated workflows\n\
+                     - Merge conflicts require manual resolution before completing pull\n\
+                     - Fast-forward behavior depends on branch history\n\n\
+                     Best practices:\n\
+                     - Always git_pull before starting new work\n\
+                     - Use ff_only in CI/CD to catch diverged branches\n\
+                     - Prefer git_fetch + git_merge for more control over merge strategy\n\
+                     - Check git_status after pull to see what changed",
+                ),
+            },
+        ])
     }
 }

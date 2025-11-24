@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitWorktreeLockArgs, GitWorktreeLockPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -82,10 +82,58 @@ impl Tool for GitWorktreeLockTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "focus".to_string(),
+            title: None,
+            description: Some(
+                "Optional focus area: 'basic' for simple locking, 'advanced' for edge cases and removable media"
+                    .to_string(),
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "What is git worktree locking and when should I use it?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "Git worktree locking prevents a worktree from being deleted, which is useful in several scenarios:\n\n\
+                     COMMON USE CASES:\n\
+                     1. Removable media: Lock worktrees on USB drives or external disks to prevent accidental deletion\n\
+                     2. Network drives: Lock worktrees on network shares that might be unmounted unexpectedly\n\
+                     3. Temporary work: Lock a worktree while you're actively using it to prevent cleanup scripts from removing it\n\
+                     4. Shared repositories: Lock worktrees in shared repos where cleanup might happen automatically\n\n\
+                     BASIC USAGE:\n\
+                     git_worktree_lock({\n\
+                       \"path\": \"/path/to/repo\",\n\
+                       \"worktree_path\": \"/path/to/worktree\"\n\
+                     })\n\n\
+                     WITH DOCUMENTATION:\n\
+                     git_worktree_lock({\n\
+                       \"path\": \"/path/to/repo\",\n\
+                       \"worktree_path\": \"/mnt/usb/my-feature-branch\",\n\
+                       \"reason\": \"On removable USB drive\"\n\
+                     })\n\n\
+                     KEY POINTS:\n\
+                     - Lock reason is optional but recommended for clarity in shared environments\n\
+                     - Locked worktrees persist across git commands until explicitly unlocked\n\
+                     - Locks prevent 'git worktree prune' and 'git worktree remove' from deleting the directory\n\
+                     - The tool fails (not idempotent) if the worktree is already locked\n\
+                     - Lock information is stored in .git/worktrees/<name>/locked file\n\n\
+                     COMMON GOTCHAS:\n\
+                     - Cannot re-lock an already-locked worktree (must unlock first)\n\
+                     - Reason string is just documentation - it doesn't enforce behavior\n\
+                     - Locking only affects worktree deletion; the worktree remains fully functional\n\
+                     - Must use git_worktree_unlock to remove the lock before deletion",
+                ),
+            },
+        ])
     }
 }

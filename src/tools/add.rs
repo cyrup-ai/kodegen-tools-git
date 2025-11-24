@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitAddArgs, GitAddPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
 use serde_json::json;
 use std::path::Path;
 
@@ -113,6 +113,48 @@ impl Tool for GitAddTool {
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I use git_add to stage files for committing?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_add tool stages file changes to the Git index, which is the intermediate \
+                     step between making changes in your working directory and creating a commit. \
+                     The index holds all staged changes that will be included in the next commit.\n\n\
+                     Basic usage examples:\n\n\
+                     1. Stage specific files:\n   \
+                     git_add({\"path\": \"/repo\", \"paths\": [\"src/main.rs\", \"Cargo.toml\"]})\n\n\
+                     2. Stage all modified files:\n   \
+                     git_add({\"path\": \"/repo\", \"all\": true})\n\n\
+                     3. Stage a single file:\n   \
+                     git_add({\"path\": \"/repo\", \"paths\": [\"README.md\"]})\n\n\
+                     4. Force-add files that match .gitignore patterns:\n   \
+                     git_add({\"path\": \"/repo\", \"paths\": [\"secret.key\"], \"force\": true})\n\n\
+                     The tool automatically:\n\
+                     - Validates that the repository path exists and is a valid Git repository\n\
+                     - Opens the repository and accesses the Git index\n\
+                     - Stages the specified files or patterns to the index\n\
+                     - Leaves unstaged changes in your working directory untouched\n\
+                     - Returns success status with a count of staged file patterns\n\n\
+                     Safety notes and best practices:\n\
+                     - This tool ONLY modifies the Git index (staging area), never your working directory files\n\
+                     - It never creates commits, pushes to remotes, or deletes any files\n\
+                     - Safe to call multiple times on the same files (idempotent operation)\n\
+                     - Files can still be modified after staging - you can re-stage them if needed\n\
+                     - Use git_status before staging to review what changes exist\n\
+                     - Use git_status after staging to verify what will be committed\n\n\
+                     Git workflow context:\n\
+                     The typical Git workflow is: git_status (review changes) → git_add (stage changes) → \
+                     git_commit (create commit) → git_push (share changes). This tool handles the staging \
+                     step. Use selective staging (specific paths) when you want to commit only certain \
+                     changes, or use all=true to stage everything at once.",
+                ),
+            },
+        ])
     }
 }

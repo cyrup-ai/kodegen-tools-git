@@ -3,7 +3,7 @@
 use gix::bstr::ByteSlice;
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitBranchListArgs, GitBranchListPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -96,10 +96,49 @@ impl Tool for GitBranchListTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "level".to_string(),
+            title: None,
+            description: Some(
+                "Detail level for examples (e.g., 'basic', 'advanced')".to_string()
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I use git_branch_list to see all branches in a repository?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_branch_list tool enumerates all local branches in a Git repository. \
+                     Here's how to use it:\n\n\
+                     Basic usage:\n\
+                     git_branch_list({\"path\": \"/path/to/repo\"})\n\n\
+                     This returns:\n\
+                     1. A human-readable summary showing total branch count and current branch\n\
+                     2. A JSON response with:\n\
+                        - success: boolean indicating operation success\n\
+                        - branches: array of branch names\n\
+                        - count: total number of branches\n\n\
+                     Key behaviors:\n\
+                     - Lists only local branches (not remote tracking branches)\n\
+                     - Highlights the currently checked-out branch\n\
+                     - Returns empty list if the path is not a Git repository\n\
+                     - Works with any repository format (bare or working tree)\n\n\
+                     Common use cases:\n\
+                     - Discovering available branches before checkout\n\
+                     - Validating branch naming conventions\n\
+                     - Automating workflows that depend on branch enumeration\n\
+                     - Monitoring branch cleanup and maintenance",
+                ),
+            },
+        ])
     }
 }

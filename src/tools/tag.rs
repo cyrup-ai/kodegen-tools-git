@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitTagArgs, GitTagPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -447,10 +447,67 @@ impl Tool for GitTagTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "focus_area".to_string(),
+            title: None,
+            description: Some(
+                "Optional focus area: 'create', 'list', 'delete', or 'all' (default: all)"
+                    .to_string(),
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I manage Git tags (create, list, delete)?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_tag tool manages repository tags for marking release points:\n\n\
+                     LIST TAGS:\n\
+                     git_tag({\"path\": \".\", \"operation\": \"list\"})\n\
+                     Returns all tags in the repository with their target commits.\n\n\
+                     CREATE TAGS:\n\
+                     1. Lightweight tag (just a named pointer):\n\
+                        git_tag({\"path\": \".\", \"operation\": \"create\", \"name\": \"v1.0.0\"})\n\n\
+                     2. Annotated tag (with message and metadata):\n\
+                        git_tag({\"path\": \".\", \"operation\": \"create\", \"name\": \"v1.0.0\", \"message\": \"Release 1.0\"})\n\n\
+                     3. Tag specific commit:\n\
+                        git_tag({\"path\": \".\", \"operation\": \"create\", \"name\": \"v0.9.0\", \"target\": \"a1b2c3d\"})\n\n\
+                     4. Force create/update existing tag:\n\
+                        git_tag({\"path\": \".\", \"operation\": \"create\", \"name\": \"v1.0.0\", \"force\": true})\n\n\
+                     DELETE TAGS:\n\
+                     git_tag({\"path\": \".\", \"operation\": \"delete\", \"name\": \"v0.9.0\"})\n\
+                     Removes the specified tag from the repository.\n\n\
+                     Parameters:\n\
+                     - path: Repository directory (required)\n\
+                     - operation: \"list\", \"create\", or \"delete\" (required)\n\
+                     - name: Tag name (required for create/delete)\n\
+                     - message: Tag message (optional, creates annotated tag if provided)\n\
+                     - target: Commit SHA to tag (optional, default: HEAD)\n\
+                     - force: Overwrite existing tag (optional, default: false)\n\n\
+                     Tag types:\n\
+                     - Lightweight: Simple pointer to commit (faster, no metadata)\n\
+                     - Annotated: Includes tagger, date, message (recommended for releases)\n\n\
+                     Best practices:\n\
+                     - Use semantic versioning (v1.2.3)\n\
+                     - Always use annotated tags for releases\n\
+                     - Include meaningful messages for annotated tags\n\
+                     - Tag before pushing to remote (git_push with --tags)\n\
+                     - Avoid force-updating published tags (breaks others' repos)\n\
+                     - List tags before creating to avoid duplicates\n\n\
+                     Common workflows:\n\
+                     - Release workflow: Create annotated tag → Push with --tags\n\
+                     - Hotfix workflow: Tag specific commit with force if needed\n\
+                     - Cleanup workflow: List all tags → Delete obsolete ones",
+                ),
+            },
+        ])
     }
 }

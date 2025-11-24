@@ -3,7 +3,7 @@
 use gix::bstr::ByteSlice;
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitStatusArgs, GitStatusPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
 use serde_json::json;
 use std::path::Path;
 
@@ -210,10 +210,100 @@ impl Tool for GitStatusTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![
+            PromptArgument {
+                name: "focus_area".to_string(),
+                title: None,
+                description: Some(
+                    "Optional focus area for examples: 'branch_info' (branch and commit details), \
+                     'upstream_tracking' (remote tracking and ahead/behind), 'working_state' (clean vs dirty), \
+                     or 'integration' (workflows combining with other tools)".to_string(),
+                ),
+                required: Some(false),
+            },
+            PromptArgument {
+                name: "use_case".to_string(),
+                title: None,
+                description: Some(
+                    "Optional use case context: 'workflow_planning' (checking status before operations), \
+                     'debugging' (troubleshooting branch/upstream issues), 'automation' (scripting with JSON output), \
+                     or 'learning' (general understanding)".to_string(),
+                ),
+                required: Some(false),
+            },
+        ]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I use git_status to monitor my repository state and plan my next actions?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_status tool shows your repository's current state including branch, commits, upstream tracking, \
+                     and working directory cleanliness. It's essential before commits, pushes, and when verifying branch state.\n\n\
+                     \
+                     BASIC USAGE:\n\
+                     git_status({\"path\": \".\"})\n\
+                     git_status({\"path\": \"/path/to/repo\"})\n\n\
+                     \
+                     OUTPUT INTERPRETATION:\n\
+                     \n\
+                     1. Branch: Shows current branch name or \"detached HEAD\" if not on a branch\n\
+                        Example: \"main\" or \"feature/new-feature\"\n\n\
+                     2. Commit: Short commit hash (first 7 characters) of HEAD\n\
+                        Example: \"abc1234\" (full hash stored in JSON output)\n\n\
+                     3. Tracking: Shows upstream branch if configured\n\
+                        Format: \"remote/branch\" (e.g., \"origin/main\")\n\
+                        May include ahead/behind counts: ↑3 ↓0 means 3 commits ahead, 0 behind\n\n\
+                     4. State: ✓ Clean (all changes committed) or ⚠ Dirty (uncommitted changes exist)\n\n\
+                     \
+                     PRACTICAL WORKFLOWS:\n\n\
+                     Workflow 1 - Before Committing:\n\
+                       1. Run git_status to see what files/changes exist\n\
+                       2. If dirty, stage changes with git_add\n\
+                       3. Run git_status again to verify staged changes\n\
+                       4. Commit with git_commit\n\n\
+                     Workflow 2 - Before Pushing:\n\
+                       1. Run git_status to check ahead/behind counts\n\
+                       2. If behind, consider git_pull first\n\
+                       3. If clean and ahead, safe to git_push\n\n\
+                     Workflow 3 - Verifying Upstream Configuration:\n\
+                       1. Run git_status to check if \"Tracking:\" line appears\n\
+                       2. If missing, use git_remote_list to verify remotes\n\
+                       3. Configure tracking with git_branch_create or git_checkout\n\n\
+                     \
+                     COMMON PATTERNS:\n\n\
+                     Detached HEAD:\n\
+                       - Branch shows \"detached HEAD\" (not on a named branch)\n\
+                       - Create a new branch with git_branch_create to resume normal workflow\n\n\
+                     Dirty State:\n\
+                       - ⚠ Dirty means uncommitted changes exist in working directory\n\
+                       - Use git_add to stage changes before committing\n\
+                       - Use git_reset to discard or unstage changes\n\n\
+                     No Tracking:\n\
+                       - If \"Tracking:\" line is absent, branch isn't configured for remote tracking\n\
+                       - After first push, git typically sets up tracking automatically\n\
+                       - Or configure manually with git_branch_create using a remote branch\n\n\
+                     \
+                     JSON OUTPUT:\n\
+                     For automation/scripting, the tool returns JSON metadata with fields:\n\
+                     - success: boolean\n\
+                     - branch: current branch name\n\
+                     - commit: full commit hash\n\
+                     - upstream: remote branch if configured (or null)\n\
+                     - ahead: number of local commits ahead of upstream (or null)\n\
+                     - behind: number of upstream commits ahead of local (or null)\n\
+                     - is_clean: boolean (true if no uncommitted changes)\n\
+                     - is_detached: boolean (true if in detached HEAD state)\n\n\
+                     This makes git_status suitable for scripts that need to check conditions before executing operations.",
+                ),
+            },
+        ])
     }
 }

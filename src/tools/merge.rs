@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitMergeArgs, GitMergePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
 use serde_json::json;
 use std::path::Path;
 
@@ -106,10 +106,49 @@ impl Tool for GitMergeTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "merge_strategy".to_string(),
+            title: None,
+            description: Some(
+                "Type of merge example to focus on (e.g., 'fast_forward', 'merge_commit', 'conflicts')".to_string()
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I merge branches with git_merge? What are the different merge strategies?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_merge tool integrates changes from one branch into another. It supports \
+                     two merge strategies:\n\n\
+                     1. Fast-forward (default): Directly moves HEAD to the merged commit if possible\n\
+                        git_merge({\"path\": \".\", \"branch\": \"feature\", \"fast_forward\": true})\n\n\
+                     2. Merge commit: Always creates a merge commit, even if fast-forward is possible\n\
+                        git_merge({\"path\": \".\", \"branch\": \"feature\", \"fast_forward\": false})\n\n\
+                     Key parameters:\n\
+                     - path: Repository directory\n\
+                     - branch: Branch name to merge into current branch\n\
+                     - fast_forward: Allow fast-forward merges (default: true)\n\
+                     - auto_commit: Automatically commit after merge (default: true)\n\n\
+                     Common workflows:\n\
+                     - Feature branch merge: merge feature into main with merge commit\n\
+                     - Rebase alternative: use fast_forward for linear history\n\
+                     - Manual conflict resolution: use auto_commit=false to stage changes\n\n\
+                     Important notes:\n\
+                     - Conflicts cause the merge to fail (prevents accidental commits)\n\
+                     - Use auto_commit=false to review and stage changes before committing\n\
+                     - Fast-forward requires linear history (no diverging commits)\n\
+                     - Merge commits preserve branch history in the repository",
+                ),
+            },
+        ])
     }
 }

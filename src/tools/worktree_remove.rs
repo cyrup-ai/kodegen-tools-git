@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitWorktreeRemoveArgs, GitWorktreeRemovePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -83,6 +83,53 @@ impl Tool for GitWorktreeRemoveTool {
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I remove a Git worktree and clean up its files?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_worktree_remove tool safely removes a worktree and its associated \
+                     administrative files from a Git repository. Here's how to use it:\n\n\
+                     Basic usage:\n\
+                     git_worktree_remove({\"path\": \"/path/to/repo\", \"worktree_path\": \"../my-feature-worktree\"})\n\n\
+                     This returns:\n\
+                     1. A human-readable summary showing the removed worktree path and force flag status\n\
+                     2. A JSON response with:\n\
+                        - success: boolean indicating operation success\n\
+                        - worktree_path: the path of the removed worktree\n\
+                        - message: confirmation message\n\n\
+                     Key parameters:\n\
+                     - path: Path to the Git repository (any subdirectory works)\n\
+                     - worktree_path: Path to the worktree to remove (can be relative or absolute)\n\
+                     - force: Set to true to remove locked worktrees (default: false)\n\n\
+                     Important behaviors:\n\
+                     - By default, cannot remove locked worktrees (must use force flag)\n\
+                     - Locked worktrees are protected to prevent accidental deletion during active use\n\
+                     - Force removal bypasses locking restrictions but should be used carefully\n\
+                     - Removes the worktree directory AND git administrative files\n\
+                     - Fails if worktree path does not exist\n\n\
+                     Common use cases:\n\
+                     - Cleanup: Remove completed feature worktrees after merging to main\n\
+                     - Maintenance: Clean up stale worktrees from failed operations\n\
+                     - Recovery: Use force flag to remove worktrees when lock files are corrupted\n\
+                     - CI/CD: Automate worktree cleanup in build pipelines\n\n\
+                     Examples:\n\
+                     1. Remove a completed feature worktree:\n\
+                        git_worktree_remove({\"path\": \".\", \"worktree_path\": \"../my-feature\", \"force\": false})\n\n\
+                     2. Force remove a stuck/locked worktree:\n\
+                        git_worktree_remove({\"path\": \".\", \"worktree_path\": \"../buggy-worktree\", \"force\": true})\n\n\
+                     Best practices:\n\
+                     - Always verify the worktree is no longer needed before removal\n\
+                     - Remove worktrees in the reverse order of creation for cleaner history\n\
+                     - Use force flag only when necessary (locked worktrees indicate active use)\n\
+                     - Consider checking worktree status before removal with git_worktree_list",
+                ),
+            },
+        ])
     }
 }

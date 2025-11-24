@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitDiscoverArgs, GitDiscoverPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -75,10 +75,75 @@ impl Tool for GitDiscoverTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "focus_area".to_string(),
+            title: Some("Focus Area".to_string()),
+            description: Some(
+                "What aspect to focus on: 'basic-usage' (when and how to use), \
+                 'search-strategy' (how upward search works), or 'edge-cases' \
+                 (bare repos, filesystem boundaries)".to_string()
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I use git_discover to find a Git repository?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_discover tool locates a Git repository by searching upward through \
+                     the filesystem hierarchy from a given starting path.\n\n\
+                     \
+                     BASIC USAGE:\n\
+                     git_discover({\"path\": \"/some/deep/nested/dir\"})\n\
+                     Returns: The root directory of the Git repository (where .git/ exists)\n\n\
+                     \
+                     COMMON USE CASES:\n\
+                     1. Determine repository context: When given an arbitrary file path, \
+                     find its containing repository\n\
+                     2. Locate .git directory: Get the exact path to the repository root \
+                     (useful for git operations)\n\
+                     3. Validate git presence: Verify a path is within a Git repository\n\n\
+                     \
+                     SEARCH BEHAVIOR:\n\
+                     - Starts at the provided path\n\
+                     - Walks upward through parent directories\n\
+                     - Stops at the first .git/ directory found\n\
+                     - Errors if no repository is found before filesystem root\n\
+                     - Works from any subdirectory (doesn't require starting from repo root)\n\n\
+                     \
+                     PARAMETERS:\n\
+                     - path (required): String path to search from. Can be:\n\
+                       - Absolute path: \"/home/user/project/src/module\"\n\
+                       - Relative path: \"./src/components\"\n\
+                       - Nested deeply: search is efficient and always finds repo\n\n\
+                     \
+                     OUTPUT:\n\
+                     Returns JSON metadata with:\n\
+                     - success: Boolean indicating if repo was found\n\
+                     - searched_from: Original path provided\n\
+                     - message: Descriptive message about the discovery\n\n\
+                     \
+                     BEST PRACTICES:\n\
+                     1. Use before running other git operations to ensure you're in a repo\n\
+                     2. Cache the result if calling multiple tools (repo root doesn't change)\n\
+                     3. Handle the error case when no repository exists\n\n\
+                     \
+                     IMPORTANT NOTES:\n\
+                     - Searches stop at filesystem root; bare repositories with .git as file \
+                     are not supported by this tool\n\
+                     - The search is idempotent: calling multiple times returns the same result\n\
+                     - Permissions: requires read access to directory hierarchy\n\
+                     - Safe: tool is read-only and never modifies filesystem",
+                ),
+            },
+        ])
     }
 }

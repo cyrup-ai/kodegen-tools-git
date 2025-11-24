@@ -2,7 +2,7 @@
 
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
 use kodegen_mcp_schema::git::{GitRemoteListArgs, GitRemoteListPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content};
+use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
 use serde_json::json;
 use std::path::Path;
 
@@ -108,10 +108,51 @@ impl Tool for GitRemoteListTool {
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
+        vec![PromptArgument {
+            name: "detail_level".to_string(),
+            title: None,
+            description: Some(
+                "Detail level for examples (e.g., 'basic', 'advanced')".to_string()
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![])
+        Ok(vec![
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I use git_remote_list to see all remotes in a repository?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The git_remote_list tool enumerates all configured remote repositories in a Git repository. \
+                     Here's how to use it:\n\n\
+                     Basic usage:\n\
+                     git_remote_list({\"path\": \"/path/to/repo\"})\n\n\
+                     This returns:\n\
+                     1. A human-readable summary showing all remotes with their URLs\n\
+                     2. A JSON response with:\n\
+                        - success: boolean indicating operation success\n\
+                        - count: total number of configured remotes\n\
+                        - remotes: array of objects containing name, fetch_url, and push_url\n\n\
+                     Key behaviors:\n\
+                     - Lists all configured remotes (origin, upstream, etc.)\n\
+                     - Shows both fetch and push URLs (may differ for some workflows)\n\
+                     - Consolidates display if fetch and push URLs are identical\n\
+                     - Returns empty list if no remotes are configured\n\
+                     - Works with any repository format (bare or working tree)\n\n\
+                     Common use cases:\n\
+                     - Discovering available remotes before push/pull operations\n\
+                     - Validating remote configuration in CI/CD workflows\n\
+                     - Monitoring multi-remote setups (e.g., origin, upstream, fork)\n\
+                     - Automating workflows that depend on remote enumeration\n\
+                     - Verifying correct fetch/push URL pairing for collaboration",
+                ),
+            },
+        ])
     }
 }
