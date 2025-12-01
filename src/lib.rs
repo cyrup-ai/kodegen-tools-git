@@ -349,3 +349,79 @@ pub async fn start_server(
         })
     }).await
 }
+
+/// Start git HTTP server using pre-bound listener (TOCTOU-safe)
+///
+/// This variant is used by kodegend to eliminate TOCTOU race conditions
+/// during port cleanup. The listener is already bound to a port.
+///
+/// # Arguments
+/// * `listener` - Pre-bound TcpListener (port already reserved)
+/// * `tls_config` - Optional (cert_path, key_path) for HTTPS
+///
+/// # Returns
+/// ServerHandle for graceful shutdown, or error if startup fails
+pub async fn start_server_with_listener(
+    listener: tokio::net::TcpListener,
+    tls_config: Option<(std::path::PathBuf, std::path::PathBuf)>,
+) -> anyhow::Result<kodegen_server_http::ServerHandle> {
+    use kodegen_server_http::{create_http_server_with_listener, Managers, RouterSet, register_tool};
+    use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
+    use std::time::Duration;
+
+    let shutdown_timeout = Duration::from_secs(30);
+
+    create_http_server_with_listener("git", listener, tls_config, shutdown_timeout, Duration::ZERO, |_config, _tracker| {
+        Box::pin(async move {
+            let mut tool_router = ToolRouter::new();
+            let mut prompt_router = PromptRouter::new();
+            let managers = Managers::new();
+
+            // Register all 27 git tools (zero-state structs, no constructors)
+
+            // Repository initialization (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitInitTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitOpenTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCloneTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitDiscoverTool);
+
+            // Branch operations (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchCreateTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchDeleteTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchListTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchRenameTool);
+
+            // Core git operations (5 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCommitTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitLogTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitDiffTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitAddTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCheckoutTool);
+
+            // Remote operations (7 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitFetchTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitMergeTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitPullTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitPushTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteAddTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteListTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteRemoveTool);
+
+            // Worktree operations (6 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeAddTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeRemoveTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeListTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeLockTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeUnlockTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreePruneTool);
+
+            // Other operations (4 tools)
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitResetTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStashTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStatusTool);
+            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitTagTool);
+
+            Ok(RouterSet::new(tool_router, prompt_router, managers))
+        })
+    }).await
+}
