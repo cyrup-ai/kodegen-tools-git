@@ -1,9 +1,8 @@
 //! Git branch deletion tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitBranchDeleteArgs, GitBranchDeletePromptArgs};
-use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitBranchDeleteArgs, GitBranchDeletePromptArgs, GitBranchDeleteOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for deleting Git branches
@@ -35,7 +34,7 @@ impl Tool for GitBranchDeleteTool {
         false // Will fail if branch doesn't exist
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -50,8 +49,6 @@ impl Tool for GitBranchDeleteTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with colored output and icons
         let force_str = if args.force { "yes" } else { "no" };
         let summary = format!(
@@ -60,19 +57,12 @@ impl Tool for GitBranchDeleteTool {
             args.branch,
             force_str
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "branch": args.branch,
-            "message": format!("Deleted branch '{}'", args.branch)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitBranchDeleteOutput {
+            success: true,
+            branch: args.branch.clone(),
+            message: format!("Deleted branch '{}'", args.branch),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

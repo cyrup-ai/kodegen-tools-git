@@ -1,9 +1,8 @@
 //! Git remote remove tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitRemoteRemoveArgs, GitRemoteRemovePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitRemoteRemoveArgs, GitRemoteRemovePromptArgs, GitRemoteRemoveOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for removing remote repositories
@@ -35,7 +34,7 @@ impl Tool for GitRemoteRemoveTool {
         false // Cannot remove non-existent remote
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -49,26 +48,18 @@ impl Tool for GitRemoteRemoveTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
-            "\x1b[32m ✓ Remote Removed\x1b[0m\n\
+            "\x1b[32m Remote Removed\x1b[0m\n\
              {} deleted from configuration",
             args.name
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "remote_name": args.name
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitRemoteRemoveOutput {
+            success: true,
+            name: args.name.clone(),
+            message: format!("Remote '{}' removed", args.name),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -110,11 +101,11 @@ impl Tool for GitRemoteRemoveTool {
                      Then remove unwanted ones:\n\
                      git_remote_remove({\"path\": \".\", \"name\": \"test-remote\"})\n\n\
                      IMPORTANT WARNINGS:\n\n\
-                     ⚠️ DESTRUCTIVE: This operation deletes the remote configuration entry. \
+                     DESTRUCTIVE: This operation deletes the remote configuration entry. \
                      You cannot undo this without manually re-adding the remote.\n\n\
-                     ⚠️ NON-IDEMPOTENT: Attempting to remove a remote that doesn't exist will \
+                     NON-IDEMPOTENT: Attempting to remove a remote that doesn't exist will \
                      fail. Always verify the remote exists before removing.\n\n\
-                     ⚠️ CONNECTIVITY: Removing a remote doesn't affect branches that were created \
+                     CONNECTIVITY: Removing a remote doesn't affect branches that were created \
                      from that remote. Those branches remain in your repository.\n\n\
                      BEST PRACTICES:\n\n\
                      1. **Always verify first**: Use git_remote_list to see all configured \
@@ -127,7 +118,7 @@ impl Tool for GitRemoteRemoveTool {
                      repository state\n\n\
                      ERROR CASES:\n\
                      - Remote not found: \"error: Could not remove config section 'remote.xxx'\" \
-                     → Check spelling with git_remote_list\n\
+                     -> Check spelling with git_remote_list\n\
                      - Permission denied: Check directory permissions on .git/config\n\
                      - Not in repo: Run from repository root or provide correct path\n\n\
                      RECOVERY:\n\

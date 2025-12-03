@@ -1,9 +1,8 @@
 //! Git merge tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitMergeArgs, GitMergePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitMergeArgs, GitMergePromptArgs, GitMergeOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for merging branches
@@ -35,7 +34,7 @@ impl Tool for GitMergeTool {
         false // Creates new commits
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -54,31 +53,23 @@ impl Tool for GitMergeTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         let (merge_type, commit_id) = match outcome {
             crate::MergeOutcome::FastForward(id) => {
-                ("fast_forward", id.to_string())
+                ("fast_forward", Some(id.to_string()))
             },
             crate::MergeOutcome::MergeCommit(id) => {
-                ("merge_commit", id.to_string())
+                ("merge_commit", Some(id.to_string()))
             },
             crate::MergeOutcome::AlreadyUpToDate => {
                 // Terminal summary
                 let summary = format!("✓ Already up to date\n\nBranch: {}", args.branch);
-                contents.push(Content::text(summary));
 
-                // JSON metadata
-                let metadata = json!({
-                    "success": true,
-                    "merge_type": "already_up_to_date",
-                    "message": "Already up to date"
-                });
-                let json_str = serde_json::to_string_pretty(&metadata)
-                    .unwrap_or_else(|_| "{}".to_string());
-                contents.push(Content::text(json_str));
-
-                return Ok(contents);
+                return Ok(ToolResponse::new(summary, GitMergeOutput {
+                    success: true,
+                    merge_type: "already_up_to_date".to_string(),
+                    commit_id: None,
+                    message: "Already up to date".to_string(),
+                }));
             }
         };
 
@@ -89,20 +80,13 @@ impl Tool for GitMergeTool {
              \u{2139} Strategy: {} · Conflicts: 0",
             args.branch, merge_type
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "merge_type": merge_type,
-            "commit_id": commit_id,
-            "message": format!("Merged '{}' ({})", args.branch, merge_type)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitMergeOutput {
+            success: true,
+            merge_type: merge_type.to_string(),
+            commit_id,
+            message: format!("Merged '{}' ({})", args.branch, merge_type),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

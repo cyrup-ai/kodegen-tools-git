@@ -1,9 +1,8 @@
 //! Git remote list tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitRemoteListArgs, GitRemoteListPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitRemoteListArgs, GitRemoteListPromptArgs, GitRemoteListOutput, GitRemoteInfo};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for listing remote repositories
@@ -35,7 +34,7 @@ impl Tool for GitRemoteListTool {
         true // Safe to call multiple times
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository and list remotes in a spawn_blocking context
@@ -60,11 +59,9 @@ impl Tool for GitRemoteListTool {
         .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
         .map_err(|e: anyhow::Error| McpError::Other(e))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let mut summary = format!(
-            "\x1b[34m🔗 Remotes ({})\x1b[0m",
+            "\x1b[34m Remotes ({})\x1b[0m",
             remotes.len()
         );
 
@@ -77,34 +74,26 @@ impl Tool for GitRemoteListTool {
                 } else {
                     format!("fetch: {} | push: {}", remote.fetch_url, remote.push_url)
                 };
-                summary.push_str(&format!("\n  {} ➜ {}", remote.name, urls));
+                summary.push_str(&format!("\n  {} -> {}", remote.name, urls));
             }
         }
 
-        contents.push(Content::text(summary));
-
-        // JSON metadata
-        let remote_list: Vec<serde_json::Value> = remotes
+        let remotes_output: Vec<GitRemoteInfo> = remotes
             .iter()
-            .map(|r| {
-                json!({
-                    "name": r.name,
-                    "fetch_url": r.fetch_url,
-                    "push_url": r.push_url
-                })
+            .map(|r| GitRemoteInfo {
+                name: r.name.clone(),
+                fetch_url: r.fetch_url.clone(),
+                push_url: r.push_url.clone(),
             })
             .collect();
 
-        let metadata = json!({
-            "success": true,
-            "count": remotes.len(),
-            "remotes": remote_list
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
+        let count = remotes_output.len();
 
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitRemoteListOutput {
+            success: true,
+            count,
+            remotes: remotes_output,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

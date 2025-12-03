@@ -1,9 +1,8 @@
 //! Git repository initialization tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitInitArgs, GitInitPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitInitArgs, GitInitPromptArgs, GitInitOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for initializing Git repositories
@@ -36,7 +35,7 @@ impl Tool for GitInitTool {
         false // Will fail if repo already exists
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Call appropriate function based on bare flag
@@ -52,8 +51,6 @@ impl Tool for GitInitTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let repo_type = if args.bare { "bare" } else { "normal" };
 
@@ -66,20 +63,13 @@ impl Tool for GitInitTool {
             repo_type,
             args.path
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "path": args.path,
-            "bare": args.bare,
-            "message": format!("Initialized {} Git repository at {}", repo_type, args.path)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| McpError::Other(anyhow::anyhow!("Failed to serialize metadata: {e}")))?;
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitInitOutput {
+            success: true,
+            path: args.path.clone(),
+            bare: args.bare,
+            message: format!("Initialized {} Git repository at {}", repo_type, args.path),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

@@ -1,9 +1,8 @@
 //! Git repository discovery tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitDiscoverArgs, GitDiscoverPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitDiscoverArgs, GitDiscoverPromptArgs, GitDiscoverOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for discovering Git repositories by searching upward
@@ -36,7 +35,7 @@ impl Tool for GitDiscoverTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         let repo = crate::discover_repo(path)
@@ -51,27 +50,19 @@ impl Tool for GitDiscoverTool {
             .display()
             .to_string();
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
             "\x1b[36m Discover Repository: {}\x1b[0m\n\
               Started from: {} · Found: {}",
             repo_root, args.path, repo_root
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "searched_from": args.path,
-            "message": format!("Discovered Git repository from path {}", args.path)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitDiscoverOutput {
+            success: true,
+            searched_from: args.path.clone(),
+            repo_root,
+            message: format!("Discovered Git repository from path {}", args.path),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

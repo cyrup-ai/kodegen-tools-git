@@ -1,9 +1,8 @@
 //! Git worktree lock tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitWorktreeLockArgs, GitWorktreeLockPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitWorktreeLockArgs, GitWorktreeLockPromptArgs, GitWorktreeLockOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for locking worktrees
@@ -35,7 +34,7 @@ impl Tool for GitWorktreeLockTool {
         false // Fails if already locked
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -56,8 +55,6 @@ impl Tool for GitWorktreeLockTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let summary = format!(
             "\x1b[33m Worktree Locked: {}\x1b[0m\n\
@@ -65,20 +62,13 @@ impl Tool for GitWorktreeLockTool {
             args.worktree_path,
             args.reason.as_deref().unwrap_or("none")
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "worktree_path": args.worktree_path,
-            "reason": args.reason,
-            "message": "Worktree locked"
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitWorktreeLockOutput {
+            success: true,
+            worktree_path: args.worktree_path.clone(),
+            reason: args.reason.clone(),
+            message: "Worktree locked".to_string(),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

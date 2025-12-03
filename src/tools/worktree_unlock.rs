@@ -1,9 +1,8 @@
 //! Git worktree unlock tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitWorktreeUnlockArgs, GitWorktreeUnlockPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitWorktreeUnlockArgs, GitWorktreeUnlockPromptArgs, GitWorktreeUnlockOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::{Path, PathBuf};
 
 /// Tool for unlocking worktrees
@@ -35,7 +34,7 @@ impl Tool for GitWorktreeUnlockTool {
         false // Fails if not locked
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -50,27 +49,18 @@ impl Tool for GitWorktreeUnlockTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let summary = format!(
             "\x1b[32m Worktree Unlocked: {}\x1b[0m\n\
               Status: unlocked",
             args.worktree_path
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "worktree_path": args.worktree_path,
-            "message": "Worktree unlocked"
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitWorktreeUnlockOutput {
+            success: true,
+            worktree_path: args.worktree_path.clone(),
+            message: "Worktree unlocked".to_string(),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

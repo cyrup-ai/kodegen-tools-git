@@ -1,10 +1,9 @@
 //! Git status tool
 
 use gix::bstr::ByteSlice;
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitStatusArgs, GitStatusPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitStatusArgs, GitStatusPromptArgs, GitStatusOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for checking repository status
@@ -36,7 +35,7 @@ impl Tool for GitStatusTool {
         true // Safe to call multiple times
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -159,8 +158,6 @@ impl Tool for GitStatusTool {
             (None, None)
         };
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let mut summary = String::from("\x1b[36m 󰊢 Repository Status\x1b[0m\n");
 
@@ -189,24 +186,16 @@ impl Tool for GitStatusTool {
         };
         summary.push_str(&format!("  State: {}", state_indicator));
 
-        contents.push(Content::text(summary));
-
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "branch": branch_name,
-            "commit": commit_hash,
-            "upstream": upstream,
-            "ahead": ahead_count,
-            "behind": behind_count,
-            "is_clean": is_clean,
-            "is_detached": is_detached
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| McpError::Other(anyhow::anyhow!("Failed to serialize JSON: {e}")))?;
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitStatusOutput {
+            success: true,
+            branch: branch_name,
+            commit: commit_hash,
+            upstream,
+            ahead: ahead_count,
+            behind: behind_count,
+            is_clean,
+            is_detached,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

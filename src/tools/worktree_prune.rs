@@ -1,9 +1,8 @@
 //! Git worktree prune tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitWorktreePruneArgs, GitWorktreePrunePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitWorktreePruneArgs, GitWorktreePrunePromptArgs, GitWorktreePruneOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for pruning stale worktrees
@@ -36,7 +35,7 @@ impl Tool for GitWorktreePruneTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -51,28 +50,18 @@ impl Tool for GitWorktreePruneTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let summary = format!(
             "\x1b[31m󰍳 Worktrees Pruned\x1b[0m\n\
              󰋽 Removed: {} stale worktrees",
             pruned.len()
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "pruned": pruned,
-            "count": pruned.len(),
-            "message": format!("Pruned {} stale worktree(s)", pruned.len())
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitWorktreePruneOutput {
+            success: true,
+            pruned_count: pruned.len(),
+            message: format!("Pruned {} stale worktree(s)", pruned.len()),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

@@ -1,9 +1,8 @@
 //! Git add (staging) tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitAddArgs, GitAddPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitAddArgs, GitAddPromptArgs, GitAddOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for staging files in Git
@@ -35,7 +34,7 @@ impl Tool for GitAddTool {
         true // Staging same files multiple times is safe
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -67,8 +66,6 @@ impl Tool for GitAddTool {
 
         let count = paths_to_stage.len();
 
-        let mut contents = Vec::new();
-
         // Build pattern string for display
         let pattern = if args.all {
             "all".to_string()
@@ -92,20 +89,13 @@ impl Tool for GitAddTool {
             "\x1b[32m✚ Staged Changes\x1b[0m\n  📄 Files: {} · Pattern: {}",
             count, pattern
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "all": args.all,
-            "paths": if args.all { vec![".".to_string()] } else { paths_to_stage },
-            "count": if args.all { 1 } else { count }
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitAddOutput {
+            success: true,
+            all: args.all,
+            paths: if args.all { vec![".".to_string()] } else { paths_to_stage },
+            count: if args.all { 1 } else { count },
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

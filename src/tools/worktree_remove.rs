@@ -1,9 +1,8 @@
 //! Git worktree remove tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitWorktreeRemoveArgs, GitWorktreeRemovePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitWorktreeRemoveArgs, GitWorktreeRemovePromptArgs, GitWorktreeRemoveOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for removing worktrees
@@ -35,7 +34,7 @@ impl Tool for GitWorktreeRemoveTool {
         false // Fails if worktree doesn't exist
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -53,8 +52,6 @@ impl Tool for GitWorktreeRemoveTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let force_display = if args.force { "yes" } else { "no" };
         let summary = format!(
@@ -63,19 +60,12 @@ impl Tool for GitWorktreeRemoveTool {
             args.worktree_path,
             force_display
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "worktree_path": args.worktree_path,
-            "message": "Worktree removed"
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitWorktreeRemoveOutput {
+            success: true,
+            worktree_path: args.worktree_path.clone(),
+            message: "Worktree removed".to_string(),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

@@ -1,9 +1,8 @@
 //! Git branch renaming tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitBranchRenameArgs, GitBranchRenamePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitBranchRenameArgs, GitBranchRenamePromptArgs, GitBranchRenameOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for renaming Git branches
@@ -35,7 +34,7 @@ impl Tool for GitBranchRenameTool {
         false // Will fail if already renamed
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -55,8 +54,6 @@ impl Tool for GitBranchRenameTool {
         .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
         .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let force_text = if args.force { "yes" } else { "no" };
         let summary = format!(
@@ -64,20 +61,13 @@ impl Tool for GitBranchRenameTool {
               Force: {}",
             args.old_name, args.new_name, force_text
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "old_name": args.old_name,
-            "new_name": args.new_name,
-            "message": format!("Renamed branch '{}' to '{}'", args.old_name, args.new_name)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitBranchRenameOutput {
+            success: true,
+            old_name: args.old_name.clone(),
+            new_name: args.new_name.clone(),
+            message: format!("Renamed branch '{}' to '{}'", args.old_name, args.new_name),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

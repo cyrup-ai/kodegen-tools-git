@@ -1,9 +1,8 @@
 //! Git log tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitLogArgs, GitLogPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageContent, PromptMessageRole};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitLogArgs, GitLogPromptArgs, GitLogOutput, GitCommitInfo, GitAuthorInfo};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 use tokio_stream::StreamExt;
 
@@ -36,7 +35,7 @@ impl Tool for GitLogTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -57,7 +56,7 @@ impl Tool for GitLogTool {
         }
 
         // Get log stream
-        let mut stream = crate::log(repo, opts);
+        let mut stream = crate::log(repo, opts, ctx.pwd());
 
         // Collect commits
         let mut commits = Vec::new();
@@ -72,16 +71,16 @@ impl Tool for GitLogTool {
                         continue;
                     }
 
-                    commits.push(json!({
-                        "id": commit_info.id.to_string(),
-                        "author": {
-                            "name": commit_info.author.name,
-                            "email": commit_info.author.email,
-                            "time": commit_info.author.time.to_rfc3339()
+                    commits.push(GitCommitInfo {
+                        id: commit_info.id.to_string(),
+                        author: GitAuthorInfo {
+                            name: commit_info.author.name.clone(),
+                            email: commit_info.author.email.clone(),
+                            time: commit_info.author.time.to_rfc3339(),
                         },
-                        "summary": commit_info.summary,
-                        "time": commit_info.time.to_rfc3339()
-                    }));
+                        summary: commit_info.summary.clone(),
+                        time: commit_info.time.to_rfc3339(),
+                    });
                 }
                 Err(e) => {
                     return Err(McpError::Other(anyhow::anyhow!("{e}")));
@@ -89,18 +88,13 @@ impl Tool for GitLogTool {
             }
         }
 
-        let mut contents = Vec::new();
-
-        // ========================================
-        // Content[0]: Human-Readable Summary
-        // ========================================
+        // Build summary
         let summary = if commits.is_empty() {
             "\x1b[36m󰄶 Commit History\x1b[0m\n 󰗚 Commits: 0 · No commits found".to_string()
         } else {
             let latest_message = commits
                 .first()
-                .and_then(|c| c.get("summary"))
-                .and_then(|v| v.as_str())
+                .map(|c| c.summary.as_str())
                 .unwrap_or("");
 
             format!(
@@ -109,21 +103,14 @@ impl Tool for GitLogTool {
                 latest_message
             )
         };
-        contents.push(Content::text(summary));
 
-        // ========================================
-        // Content[1]: Machine-Parseable JSON
-        // ========================================
-        let metadata = json!({
-            "success": true,
-            "commits": commits,
-            "count": commits.len()
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
+        let count = commits.len();
 
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitLogOutput {
+            success: true,
+            commits,
+            count,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

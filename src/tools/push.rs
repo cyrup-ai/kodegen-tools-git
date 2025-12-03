@@ -1,9 +1,8 @@
 //! Git push tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitPushArgs, GitPushPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitPushArgs, GitPushPromptArgs, GitPushOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for pushing commits and tags to remote repositories
@@ -36,7 +35,7 @@ impl Tool for GitPushTool {
         true // Safe to push same refs multiple times (no-op if already pushed)
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository and execute push in a spawn_blocking context
@@ -75,8 +74,6 @@ impl Tool for GitPushTool {
         .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
         .map_err(|e: anyhow::Error| McpError::Other(e))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
         let mut details = vec![
             format!("Remote: {}", args.remote),
@@ -99,22 +96,15 @@ impl Tool for GitPushTool {
             "✓ Push completed\n\n{}",
             details.join("\n")
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "remote": args.remote,
-            "refs_pushed": result.commits_pushed,
-            "tags_pushed": result.tags_pushed,
-            "force": args.force,
-            "warnings": result.warnings
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitPushOutput {
+            success: true,
+            remote: args.remote.clone(),
+            refs_pushed: result.commits_pushed as u32,
+            tags_pushed: result.tags_pushed as u32,
+            force: args.force,
+            warnings: result.warnings,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -162,15 +152,6 @@ impl Tool for GitPushTool {
                         git_push({\"path\": \"/repo\", \"remote\": \"origin\", \"refspecs\": [\"main\", \"develop\", \"staging\"], \"force\": false, \"tags\": false, \"timeout_secs\": 30})\n\n\
                      5. Force push (dangerous - only for fixing mistakes):\n\
                         git_push({\"path\": \"/repo\", \"remote\": \"origin\", \"refspecs\": [\"main\"], \"force\": true, \"tags\": false, \"timeout_secs\": 30})\n\n\
-                     COMPLETE WORKFLOW INVOCATIONS (4 examples):\n\n\
-                     Workflow 1 - Simple push:\n\
-                        git_push({\"path\": \"./my-project\", \"remote\": \"origin\", \"refspecs\": [], \"force\": false, \"tags\": false, \"timeout_secs\": 30})\n\n\
-                     Workflow 2 - Release with tags:\n\
-                        git_push({\"path\": \"./my-project\", \"remote\": \"origin\", \"refspecs\": [\"main\"], \"force\": false, \"tags\": true, \"timeout_secs\": 30})\n\n\
-                     Workflow 3 - Multi-branch feature push:\n\
-                        git_push({\"path\": \"./my-project\", \"remote\": \"origin\", \"refspecs\": [\"main\", \"feature/auth\", \"feature/api\"], \"force\": false, \"tags\": false, \"timeout_secs\": 45})\n\n\
-                     Workflow 4 - Emergency fix with force push:\n\
-                        git_push({\"path\": \"./my-project\", \"remote\": \"origin\", \"refspecs\": [\"hotfix/critical-bug\"], \"force\": true, \"tags\": false, \"timeout_secs\": 30})\n\n\
                      AUTHENTICATION REQUIREMENTS:\n\
                      - SSH Keys: ~/.ssh/id_rsa with proper permissions (600)\n\
                      - Credential Helper: git config credential.helper store\n\
@@ -218,34 +199,6 @@ impl Tool for GitPushTool {
                         refspecs: [\"feature/new-auth\", \"feature/api-v2\", \"main\"]\n\
                         Result: Push multiple features alongside main\n\
                         Use case: Feature branch workflows, parallel development\n\n\
-                     6. Hotfix with multi-branch:\n\
-                        refspecs: [\"hotfix/critical\", \"main\", \"develop\"]\n\
-                        Result: Push hotfix to all relevant branches\n\
-                        Use case: Emergency fixes requiring sync across versions\n\n\
-                     WHEN TO USE EACH PATTERN:\n\n\
-                     Empty (current branch):\n\
-                     - Local-only features you're developing\n\
-                     - Quick pushes without thinking about branches\n\
-                     - Interactive development with frequent commits\n\n\
-                     Single branch:\n\
-                     - Sharing work on specific feature branches\n\
-                     - Automated CI/CD pipelines\n\
-                     - Protected branch policies (e.g., main requires PR)\n\n\
-                     Multiple branches:\n\
-                     - Coordinated team releases\n\
-                     - Syncing related feature branches\n\
-                     - Maintaining multiple release versions\n\n\
-                     With tags=true:\n\
-                     - Version releases and milestones\n\
-                     - Release notes and artifacts\n\
-                     - Production deployment triggers\n\n\
-                     COMPLETE CODE EXAMPLES:\n\n\
-                     Example 1 - Development push:\n\
-                     git_push({\"path\": \"./app\", \"remote\": \"origin\", \"refspecs\": [\"feature/auth\"], \"force\": false, \"tags\": false, \"timeout_secs\": 30})\n\n\
-                     Example 2 - Release push:\n\
-                     git_push({\"path\": \"./app\", \"remote\": \"origin\", \"refspecs\": [\"main\"], \"force\": false, \"tags\": true, \"timeout_secs\": 30})\n\n\
-                     Example 3 - Multi-branch workflow:\n\
-                     git_push({\"path\": \"./app\", \"remote\": \"origin\", \"refspecs\": [\"main\", \"develop\", \"staging\"], \"force\": false, \"tags\": false, \"timeout_secs\": 45})\n\n\
                      Best practice: Always specify explicit refspecs in scripts/CI to avoid accidental pushes",
                 ),
             },
@@ -265,14 +218,7 @@ impl Tool for GitPushTool {
                      Fix: Pull first, then push\n\
                         1. git_pull(...) // Merge remote changes into your branch\n\
                         2. Resolve any merge conflicts\n\
-                        3. git_push(...) // Now push succeeds\n\
-                     Prevention: Always pull before pushing. Use git fetch + git status to check\n\
-                     Recovery Workflow:\n\
-                        Step 1: git fetch (fetch remote changes without merging)\n\
-                        Step 2: git log --oneline (see what changed remotely)\n\
-                        Step 3: git merge origin/main (or pull if preferred)\n\
-                        Step 4: Resolve conflicts if any\n\
-                        Step 5: git push (retry)\n\n\
+                        3. git_push(...) // Now push succeeds\n\n\
                      ERROR SCENARIO 2 - Authentication Failure:\n\
                      Error: \"fatal: Authentication failed\", \"permission denied (publickey)\"\n\
                      Cause: No SSH keys, bad credentials, or missing credential helper\n\
@@ -280,72 +226,27 @@ impl Tool for GitPushTool {
                         1. SSH: ssh-keygen -t ed25519 (generate key)\n\
                         2. Add public key to GitHub/GitLab settings\n\
                         3. Test: ssh -T git@github.com\n\
-                        4. For HTTPS: git config credential.helper store\n\
-                     Prevention: Setup SSH keys or credential helper before pushing\n\
-                     Recovery Workflow:\n\
-                        Step 1: Verify SSH key exists: ls ~/.ssh/id_ed25519 (or id_rsa)\n\
-                        Step 2: Check key has correct permissions: chmod 600 ~/.ssh/id_ed25519\n\
-                        Step 3: Test remote access: ssh -T git@github.com\n\
-                        Step 4: Retry push with proper authentication\n\n\
+                        4. For HTTPS: git config credential.helper store\n\n\
                      ERROR SCENARIO 3 - Protected Branch (push denied):\n\
                      Error: \"You do not have permission to update the protected ref\"\n\
                      Cause: Branch is protected and requires pull requests\n\
                      Fix: Use pull request instead\n\
                         1. Push to feature branch (not protected)\n\
                         2. Create pull request on remote service\n\
-                        3. Get approval and merge through PR\n\
-                        4. Protected branch now has your changes\n\
-                     Prevention: Check branch protection rules before pushing\n\
-                     Recovery Workflow:\n\
-                        Step 1: Push to a feature branch: git_push({...refspecs: [\"feature/my-feature\"]...})\n\
-                        Step 2: Open PR on GitHub/GitLab\n\
-                        Step 3: Get approval\n\
-                        Step 4: Merge through web interface (required by rules)\n\n\
+                        3. Get approval and merge through PR\n\n\
                      ERROR SCENARIO 4 - Connection Timeout:\n\
                      Error: \"Operation timed out\", \"unable to access repository\"\n\
                      Cause: Network issue, remote server slow, firewall blocking\n\
                      Fix: Retry with longer timeout\n\
                         1. Increase timeout_secs parameter: timeout_secs: 60 (was 30)\n\
                         2. Check network connectivity: ping github.com\n\
-                        3. Retry push with new timeout\n\
-                        4. If persistent, check firewall/VPN settings\n\
-                     Prevention: Use appropriate timeout for your network. Monitor connection quality.\n\
-                     Recovery Workflow:\n\
-                        Step 1: Wait a moment (server may be temporarily slow)\n\
-                        Step 2: Check connection: ping github.com\n\
-                        Step 3: Retry with git_push(...timeout_secs: 60...)\n\
-                        Step 4: If still fails, check firewall: sudo lsof -i (macOS/Linux)\n\n\
-                     ERROR SCENARIO 5 - Force Push Conflict:\n\
-                     Error: \"refused to update ref\", \"remote has newer history\"\n\
-                     Cause: Force push attempted but remote history is newer/protected\n\
-                     Fix: Don't force push to shared branches\n\
-                        1. Verify branch: is it personal or shared?\n\
-                        2. For shared: use normal push instead\n\
-                        3. For personal: ensure no one else is pushing\n\
-                        4. Then force push if necessary\n\
-                     Prevention: NEVER force push to main/develop/master. Use branch rules.\n\
-                     Recovery Workflow:\n\
-                        Step 1: Stop. Don't force push without team agreement.\n\
-                        Step 2: If this is main/develop, back up your changes first\n\
-                        Step 3: Use normal push: git_push({...force: false...})\n\
-                        Step 4: If normal push fails, resolve conflicts per Scenario 1\n\
-                        Step 5: Communicate with team about what happened\n\n\
+                        3. Retry push with new timeout\n\n\
                      GENERAL RECOVERY STRATEGY:\n\
-                     1. Diagnose: Read error message carefully (usually tells you the problem)\n\
+                     1. Diagnose: Read error message carefully\n\
                      2. Fetch: git fetch to see remote state\n\
-                     3. Compare: git log --oneline origin/branch to see what's different\n\
-                     4. Decide: Are you behind (pull), rejected (check permissions), or network issue (retry)?\n\
-                     5. Fix: Follow appropriate scenario above\n\
-                     6. Retry: Attempt git_push(...) again\n\
-                     7. Document: If it's a team issue, communicate with others\n\n\
-                     DEBUGGING CHECKLIST:\n\
-                     ✓ Can I fetch? (test connection)\n\
-                     ✓ Do I have write permissions? (check remote settings)\n\
-                     ✓ Is the branch protected? (check branch rules)\n\
-                     ✓ Is my branch up to date? (git fetch && git status)\n\
-                     ✓ Do I have authentication? (ssh -T or git ls-remote)\n\
-                     ✓ Is network available? (ping remote)\n\
-                     ✓ Should I be force pushing? (be very careful!)",
+                     3. Compare: git log to see what's different\n\
+                     4. Fix: Follow appropriate scenario above\n\
+                     5. Retry: Attempt git_push(...) again",
                 ),
             },
         ])

@@ -1,10 +1,9 @@
 //! Git branch listing tool
 
 use gix::bstr::ByteSlice;
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitBranchListArgs, GitBranchListPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitBranchListArgs, GitBranchListPromptArgs, GitBranchListOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for listing Git branches
@@ -35,7 +34,7 @@ impl Tool for GitBranchListTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -71,8 +70,6 @@ impl Tool for GitBranchListTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
             "\x1b[36m\u{EDA6} Branches\x1b[0m\n\
@@ -80,19 +77,14 @@ impl Tool for GitBranchListTool {
             branches.len(),
             current_branch_name
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "branches": branches,
-            "count": branches.len()
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
+        let count = branches.len();
 
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitBranchListOutput {
+            success: true,
+            branches,
+            count,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

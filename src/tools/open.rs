@@ -1,10 +1,9 @@
 //! Git repository opening tool
 
 use gix::bstr::ByteSlice;
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitOpenArgs, GitOpenPromptArgs};
-use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitOpenArgs, GitOpenPromptArgs, GitOpenOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for opening existing Git repositories
@@ -36,7 +35,7 @@ impl Tool for GitOpenTool {
         true // Opening same repo multiple times is safe
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         let repo = crate::open_repo(path)
@@ -77,8 +76,6 @@ impl Tool for GitOpenTool {
         .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
         .map_err(|e| McpError::Other(anyhow::anyhow!("Failed to check clean status: {e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let status = if is_clean { "clean" } else { "dirty" };
         let summary = format!(
@@ -88,21 +85,14 @@ impl Tool for GitOpenTool {
             branch_name,
             status
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "path": args.path,
-            "branch": branch_name,
-            "is_clean": is_clean,
-            "message": format!("Opened Git repository at {}", args.path)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| McpError::Other(anyhow::anyhow!("Failed to serialize metadata: {e}")))?;
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitOpenOutput {
+            success: true,
+            path: args.path.clone(),
+            branch: branch_name,
+            is_clean,
+            message: format!("Opened Git repository at {}", args.path),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

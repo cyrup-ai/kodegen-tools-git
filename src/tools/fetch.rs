@@ -1,9 +1,8 @@
 //! Git fetch tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitFetchArgs, GitFetchPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitFetchArgs, GitFetchPromptArgs, GitFetchOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for fetching from remote repositories
@@ -35,7 +34,7 @@ impl Tool for GitFetchTool {
         true // Safe to fetch repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -56,8 +55,6 @@ impl Tool for GitFetchTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary (2 lines with ANSI formatting)
         let prune_status = if args.prune { "yes" } else { "no" };
 
@@ -65,19 +62,12 @@ impl Tool for GitFetchTool {
             "\x1b[36m󰇚 Fetch: {}\x1b[0m\n 󰗚 Refs updated: synced · Prune: {}",
             args.remote, prune_status
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "remote": args.remote,
-            "pruned": args.prune
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitFetchOutput {
+            success: true,
+            remote: args.remote.clone(),
+            pruned: args.prune,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -131,7 +121,7 @@ impl Tool for GitFetchTool {
                      3. Multiple remotes: First fetch(origin), then fetch(upstream) for syncing fork\n\
                         git_fetch({\"path\": \".\", \"remote\": \"origin\"})\n\
                         git_fetch({\"path\": \".\", \"remote\": \"upstream\"})\n\n\
-                     4. Custom refspecs: git_fetch({\"path\": \".\", \"remote\": \"origin\", \
+                     4. Custom refspecs: git_fetch({\"path\": \".\", \"remote\": \"origin\", \n\
                         \"refspecs\": [\"refs/heads/main:refs/remotes/origin/main\"]})\n\
                         Fetch specific branches explicitly\n\n\
                      Important notes:\n\

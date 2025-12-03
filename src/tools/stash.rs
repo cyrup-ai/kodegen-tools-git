@@ -1,9 +1,8 @@
 //! Git stash tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitStashArgs, GitStashPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitStashArgs, GitStashPromptArgs, GitStashOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for stashing changes
@@ -35,7 +34,7 @@ impl Tool for GitStashTool {
         false // Pop is not idempotent (consumes stash)
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -43,8 +42,6 @@ impl Tool for GitStashTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {}", e)))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{}", e)))?;
-
-        let mut contents = Vec::new();
 
         if args.operation.as_str() == "save" {
             // Save stash
@@ -66,19 +63,14 @@ impl Tool for GitStashTool {
                 stash_info.message,
                 commit_short
             );
-            contents.push(Content::text(summary));
 
-            // JSON metadata
-            let metadata = json!({
-                "success": true,
-                "operation": "save",
-                "name": stash_info.name,
-                "message": stash_info.message,
-                "commit_hash": stash_info.commit_hash
-            });
-            let json_str = serde_json::to_string_pretty(&metadata)
-                .unwrap_or_else(|_| "{}".to_string());
-            contents.push(Content::text(json_str));
+            Ok(ToolResponse::new(summary, GitStashOutput {
+                success: true,
+                operation: "save".to_string(),
+                name: Some(stash_info.name),
+                message: Some(stash_info.message),
+                commit_hash: Some(stash_info.commit_hash),
+            }))
         } else if args.operation.as_str() == "pop" {
             // Pop stash
             crate::stash_pop(repo, None)
@@ -88,24 +80,20 @@ impl Tool for GitStashTool {
             // Terminal summary
             let summary = "\x1b[32m ✓ Stash Popped\x1b[0m\n\
                  Changes restored to working directory".to_string();
-            contents.push(Content::text(summary));
 
-            // JSON metadata
-            let metadata = json!({
-                "success": true,
-                "operation": "pop"
-            });
-            let json_str = serde_json::to_string_pretty(&metadata)
-                .unwrap_or_else(|_| "{}".to_string());
-            contents.push(Content::text(json_str));
+            Ok(ToolResponse::new(summary, GitStashOutput {
+                success: true,
+                operation: "pop".to_string(),
+                name: None,
+                message: None,
+                commit_hash: None,
+            }))
         } else {
-            return Err(McpError::Other(anyhow::anyhow!(
+            Err(McpError::Other(anyhow::anyhow!(
                 "Invalid stash operation: {}. Use 'save' or 'pop'",
                 args.operation
-            )));
+            )))
         }
-
-        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -136,7 +124,7 @@ impl Tool for GitStashTool {
                      OPERATIONS\n\
                      \n\
                      1. Save changes to stash (default operation):\n\
-                        git_stash({\"path\": \"/path/to/repo\", \"operation\": \"save\", \
+                        git_stash({\"path\": \"/path/to/repo\", \"operation\": \"save\", \n\
                         \"message\": \"WIP: feature implementation\", \"include_untracked\": true})\n\n\
                      2. Apply stash and remove it from the stack:\n\
                         git_stash({\"path\": \"/path/to/repo\", \"operation\": \"pop\"})\n\n\

@@ -1,10 +1,9 @@
 //! Git pull tool
 
 use gix::bstr::ByteSlice;
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitPullArgs, GitPullPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitPullArgs, GitPullPromptArgs, GitPullOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for pulling from remote repositories
@@ -37,7 +36,7 @@ impl Tool for GitPullTool {
         false // Can create new merge commits
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -80,8 +79,6 @@ impl Tool for GitPullTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Determine merge outcome string
         let merge_outcome_str = match &result.merge_outcome {
             crate::MergeOutcome::FastForward(_) => "fast_forward",
@@ -94,19 +91,12 @@ impl Tool for GitPullTool {
             "\x1b[36m ⬇ Pull from {}\x1b[0m\n  ℹ Merge: {}",
             args.remote, merge_outcome_str
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "remote": args.remote,
-            "merge_outcome": merge_outcome_str
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitPullOutput {
+            success: true,
+            remote: args.remote.clone(),
+            merge_outcome: merge_outcome_str.to_string(),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

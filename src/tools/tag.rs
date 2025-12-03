@@ -1,9 +1,8 @@
 //! Git tag tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitTagArgs, GitTagPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitTagArgs, GitTagPromptArgs, GitTagOutput, GitTagInfo};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for managing repository tags
@@ -35,7 +34,7 @@ impl Tool for GitTagTool {
         false // Cannot create duplicate tags (unless forced)
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -44,10 +43,8 @@ impl Tool for GitTagTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         if args.operation.as_str() == "create" {
-            let name = args.name.ok_or_else(|| {
+            let name = args.name.clone().ok_or_else(|| {
                 McpError::Other(anyhow::anyhow!("Tag name required for create operation"))
             })?;
 
@@ -199,22 +196,19 @@ impl Tool for GitTagTool {
                 name, tag_type,
                 &tag_info.target_commit[..7.min(tag_info.target_commit.len())]
             );
-            contents.push(Content::text(summary));
 
-            // JSON metadata
-            let metadata = json!({
-                "success": true,
-                "operation": "create",
-                "name": name,
-                "is_annotated": tag_info.is_annotated,
-                "target_commit": tag_info.target_commit,
-                "message": tag_info.message
-            });
-            let json_str = serde_json::to_string_pretty(&metadata)
-                .unwrap_or_else(|_| "{}".to_string());
-            contents.push(Content::text(json_str));
+            Ok(ToolResponse::new(summary, GitTagOutput {
+                success: true,
+                operation: "create".to_string(),
+                name: Some(name),
+                is_annotated: Some(tag_info.is_annotated),
+                target_commit: Some(tag_info.target_commit),
+                message: tag_info.message,
+                count: None,
+                tags: None,
+            }))
         } else if args.operation.as_str() == "delete" {
-            let name = args.name.ok_or_else(|| {
+            let name = args.name.clone().ok_or_else(|| {
                 McpError::Other(anyhow::anyhow!("Tag name required for delete operation"))
             })?;
 
@@ -268,17 +262,17 @@ impl Tool for GitTagTool {
                  {} removed from repository",
                 name
             );
-            contents.push(Content::text(summary));
 
-            // JSON metadata
-            let metadata = json!({
-                "success": true,
-                "operation": "delete",
-                "name": name
-            });
-            let json_str = serde_json::to_string_pretty(&metadata)
-                .unwrap_or_else(|_| "{}".to_string());
-            contents.push(Content::text(json_str));
+            Ok(ToolResponse::new(summary, GitTagOutput {
+                success: true,
+                operation: "delete".to_string(),
+                name: Some(name),
+                is_annotated: None,
+                target_commit: None,
+                message: None,
+                count: None,
+                tags: None,
+            }))
         } else if args.operation.as_str() == "list" {
             let repo_clone = repo.clone();
             let tags = tokio::task::spawn_blocking(move || {
@@ -376,18 +370,6 @@ impl Tool for GitTagTool {
 
             if tags.is_empty() {
                 summary.push_str("\n  No tags in repository");
-
-                contents.push(Content::text(summary));
-
-                let metadata = json!({
-                    "success": true,
-                    "operation": "list",
-                    "count": 0,
-                    "tags": []
-                });
-                let json_str = serde_json::to_string_pretty(&metadata)
-                    .unwrap_or_else(|_| "{}".to_string());
-                contents.push(Content::text(json_str));
             } else {
                 // Sort tags for consistent output
                 let mut sorted_tags = tags;
@@ -410,40 +392,46 @@ impl Tool for GitTagTool {
                     summary.push_str(&format!("\n  ... and {} more", sorted_tags.len() - 20));
                 }
 
-                contents.push(Content::text(summary));
-
-                // JSON metadata - include all tags, not just the displayed 20
-                let tag_list: Vec<serde_json::Value> = sorted_tags
-                    .iter()
-                    .map(|t| {
-                        json!({
-                            "name": t.name,
-                            "is_annotated": t.is_annotated,
-                            "target_commit": t.target_commit,
-                            "message": t.message,
-                            "timestamp": t.timestamp.to_rfc3339()
-                        })
+                let count = sorted_tags.len();
+                let tag_list: Vec<GitTagInfo> = sorted_tags
+                    .into_iter()
+                    .map(|t| GitTagInfo {
+                        name: t.name,
+                        is_annotated: t.is_annotated,
+                        target_commit: t.target_commit,
+                        message: t.message,
+                        timestamp: t.timestamp.to_rfc3339(),
                     })
                     .collect();
 
-                let metadata = json!({
-                    "success": true,
-                    "operation": "list",
-                    "count": sorted_tags.len(),
-                    "tags": tag_list
-                });
-                let json_str = serde_json::to_string_pretty(&metadata)
-                    .unwrap_or_else(|_| "{}".to_string());
-                contents.push(Content::text(json_str));
+                return Ok(ToolResponse::new(summary, GitTagOutput {
+                    success: true,
+                    operation: "list".to_string(),
+                    name: None,
+                    is_annotated: None,
+                    target_commit: None,
+                    message: None,
+                    count: Some(count),
+                    tags: Some(tag_list),
+                }));
             }
+
+            Ok(ToolResponse::new(summary, GitTagOutput {
+                success: true,
+                operation: "list".to_string(),
+                name: None,
+                is_annotated: None,
+                target_commit: None,
+                message: None,
+                count: Some(0),
+                tags: Some(vec![]),
+            }))
         } else {
-            return Err(McpError::Other(anyhow::anyhow!(
+            Err(McpError::Other(anyhow::anyhow!(
                 "Invalid tag operation: {}. Use 'create', 'delete', or 'list'",
                 args.operation
-            )));
+            )))
         }
-
-        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

@@ -20,6 +20,7 @@ pub mod add;
 pub mod checkout;
 pub mod commit;
 pub mod diff;
+pub mod history;
 pub mod log;
 
 // Remote Operations
@@ -64,6 +65,7 @@ pub use add::GitAddTool;
 pub use checkout::GitCheckoutTool;
 pub use commit::GitCommitTool;
 pub use diff::GitDiffTool;
+pub use history::GitHistoryTool;
 pub use log::GitLogTool;
 
 pub use fetch::GitFetchTool;

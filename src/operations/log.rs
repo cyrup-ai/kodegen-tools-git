@@ -72,9 +72,16 @@ impl Default for LogOpts {
 }
 
 /// Execute log operation with the given options, returning a stream of commits.
-pub fn log(repo: RepoHandle, opts: LogOpts) -> AsyncStream<GitResult<CommitInfo>> {
+pub fn log(
+    repo: RepoHandle,
+    opts: LogOpts,
+    client_pwd: Option<&std::path::Path>,
+) -> AsyncStream<GitResult<CommitInfo>> {
     let (tx, rx) = mpsc::unbounded_channel();
     let repo = repo.clone_inner();
+    
+    // Convert borrowed path to owned for 'static lifetime requirement
+    let client_pwd_owned = client_pwd.map(|p| p.to_path_buf());
 
     tokio::task::spawn_blocking(move || {
         let LogOpts {
@@ -86,7 +93,7 @@ pub fn log(repo: RepoHandle, opts: LogOpts) -> AsyncStream<GitResult<CommitInfo>
 
         // Normalize path if provided
         let normalized_path = if let Some(ref p) = path {
-            Some(match normalize_path(&repo, p) {
+            Some(match normalize_path(&repo, p, client_pwd_owned.as_deref()) {
                 Ok(normalized) => normalized,
                 Err(e) => {
                     let _ = tx.send(Err(e));
@@ -228,7 +235,11 @@ pub fn log(repo: RepoHandle, opts: LogOpts) -> AsyncStream<GitResult<CommitInfo>
 }
 
 /// Normalize path to repo-relative format
-fn normalize_path(repo: &gix::Repository, path: &std::path::Path) -> GitResult<PathBuf> {
+fn normalize_path(
+    repo: &gix::Repository,
+    path: &std::path::Path,
+    client_pwd: Option<&std::path::Path>,
+) -> GitResult<PathBuf> {
     // Get repository workdir
     let workdir = repo.workdir().ok_or_else(|| {
         GitError::InvalidInput("Cannot filter by path in bare repository".to_string())
@@ -238,9 +249,14 @@ fn normalize_path(repo: &gix::Repository, path: &std::path::Path) -> GitResult<P
     let absolute_path = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        std::env::current_dir()
-            .map_err(|e| GitError::InvalidInput(format!("Cannot get current directory: {e}")))?
-            .join(path)
+        let cwd = if let Some(pwd) = client_pwd {
+            pwd.to_path_buf()
+        } else {
+            // Fallback for tests and direct library usage (non-HTTP contexts)
+            std::env::current_dir()
+                .map_err(|e| GitError::InvalidInput(format!("Cannot get current directory: {e}")))?
+        };
+        cwd.join(path)
     };
 
     // Convert to repo-relative
@@ -329,7 +345,7 @@ fn change_matches_path(change_location: &gix::bstr::BStr, filter_path: &std::pat
 /// Uses zero-allocation iteration over parent IDs and early-exit optimization
 /// to minimize overhead in the path filtering hot path.
 #[inline]
-fn commit_touches_path(
+pub fn commit_touches_path(
     repo: &gix::Repository,
     commit: &gix::Commit,
     filter_path: &std::path::Path,

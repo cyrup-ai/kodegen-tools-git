@@ -1,9 +1,8 @@
 //! Git repository cloning tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitCloneArgs, GitClonePromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitCloneArgs, GitClonePromptArgs, GitCloneOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 
 /// Tool for cloning remote Git repositories
 #[derive(Clone)]
@@ -39,7 +38,7 @@ impl Tool for GitCloneTool {
         true // Makes network requests
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let mut opts = crate::CloneOpts::new(&args.url, &args.path);
 
         if let Some(depth) = args.depth {
@@ -68,8 +67,6 @@ impl Tool for GitCloneTool {
                 .unwrap_or_else(|| "HEAD".to_string())
         };
 
-        let mut contents = Vec::new();
-
         // Build optional metadata
         let mut metadata_parts = vec![
             format!("Destination: {}", args.path),
@@ -88,23 +85,16 @@ impl Tool for GitCloneTool {
             args.url,
             metadata_parts.join(" · ")
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "url": args.url,
-            "path": args.path,
-            "branch": branch_name,
-            "shallow": args.depth.is_some(),
-            "depth": args.depth,
-            "message": format!("Cloned {} to {}", args.url, args.path)
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitCloneOutput {
+            success: true,
+            url: args.url.clone(),
+            path: args.path.clone(),
+            branch: branch_name,
+            shallow: args.depth.is_some(),
+            depth: args.depth,
+            message: format!("Cloned {} to {}", args.url, args.path),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

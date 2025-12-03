@@ -1,9 +1,8 @@
 //! Git worktree list tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitWorktreeListArgs, GitWorktreeListPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitWorktreeListArgs, GitWorktreeListPromptArgs, GitWorktreeListOutput, GitWorktreeInfo};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for listing worktrees
@@ -36,7 +35,7 @@ impl Tool for GitWorktreeListTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -51,24 +50,20 @@ impl Tool for GitWorktreeListTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let worktrees_json: Vec<_> = worktrees
+        let worktrees_output: Vec<GitWorktreeInfo> = worktrees
             .iter()
-            .map(|wt| {
-                json!({
-                    "path": wt.path.display().to_string(),
-                    "git_dir": wt.git_dir.display().to_string(),
-                    "is_main": wt.is_main,
-                    "is_bare": wt.is_bare,
-                    "head_commit": wt.head_commit.map(|id| id.to_string()),
-                    "head_branch": wt.head_branch.clone(),
-                    "is_locked": wt.is_locked,
-                    "lock_reason": wt.lock_reason.clone(),
-                    "is_detached": wt.is_detached
-                })
+            .map(|wt| GitWorktreeInfo {
+                path: wt.path.display().to_string(),
+                git_dir: wt.git_dir.display().to_string(),
+                is_main: wt.is_main,
+                is_bare: wt.is_bare,
+                head_commit: wt.head_commit.map(|id| id.to_string()),
+                head_branch: wt.head_branch.clone(),
+                is_locked: wt.is_locked,
+                lock_reason: wt.lock_reason.clone(),
+                is_detached: wt.is_detached,
             })
             .collect();
-
-        let mut contents = Vec::new();
 
         // Terminal summary with ANSI color codes and Nerd Font icons
         let count = worktrees.len();
@@ -82,19 +77,12 @@ impl Tool for GitWorktreeListTool {
               Total: {} · Main: {}",
             count, main_path
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "worktrees": worktrees_json,
-            "count": worktrees.len()
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitWorktreeListOutput {
+            success: true,
+            worktrees: worktrees_output,
+            count,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

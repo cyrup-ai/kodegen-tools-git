@@ -1,9 +1,8 @@
 //! Git remote add tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitRemoteAddArgs, GitRemoteAddPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitRemoteAddArgs, GitRemoteAddPromptArgs, GitRemoteAddOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for adding remote repositories
@@ -35,7 +34,7 @@ impl Tool for GitRemoteAddTool {
         true // Safe to add same remote multiple times
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -56,26 +55,18 @@ impl Tool for GitRemoteAddTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
-            "\x1b[32m Add Remote\x1b[0m\n  ✓ {} ➜ {}",
+            "\x1b[32m Add Remote\x1b[0m\n  {} -> {}",
             args.name, args.url
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "remote_name": args.name,
-            "remote_url": args.url
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitRemoteAddOutput {
+            success: true,
+            name: args.name.clone(),
+            url: args.url.clone(),
+            message: format!("Added remote '{}' with URL '{}'", args.name, args.url),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -124,10 +115,10 @@ impl Tool for GitRemoteAddTool {
                        \"url\": \"https://github.com/user/repo.git\"\n\
                      })\n\n\
                      KEY CONCEPTS:\n\
-                     • Remote Name: Identifier for the repository (\"origin\" is convention for primary remote)\n\
-                     • Remote URL: Address where repository code is stored (HTTPS, SSH, git protocol, or file://)\n\
-                     • Idempotent: Safe to call multiple times with same arguments\n\
-                     • Non-Destructive: Adding remotes never deletes code",
+                     - Remote Name: Identifier for the repository (\"origin\" is convention for primary remote)\n\
+                     - Remote URL: Address where repository code is stored (HTTPS, SSH, git protocol, or file://)\n\
+                     - Idempotent: Safe to call multiple times with same arguments\n\
+                     - Non-Destructive: Adding remotes never deletes code",
                 ),
             },
 
@@ -147,27 +138,27 @@ impl Tool for GitRemoteAddTool {
                      1. HTTPS (Recommended for Public Repositories):\n  \
                      git_remote_add({\"path\": \".\", \"name\": \"origin\", \
                      \"url\": \"https://github.com/user/repo.git\"})\n  \
-                     • Advantages: Works through firewalls, no SSH key setup needed\n  \
-                     • Disadvantages: Requires password/token authentication per push\n  \
-                     • Use Case: CI/CD, shared environments, teams without SSH infrastructure\n\n\
+                     - Advantages: Works through firewalls, no SSH key setup needed\n  \
+                     - Disadvantages: Requires password/token authentication per push\n  \
+                     - Use Case: CI/CD, shared environments, teams without SSH infrastructure\n\n\
                      2. SSH (Recommended for Private Repositories + Developers):\n  \
                      git_remote_add({\"path\": \".\", \"name\": \"origin\", \
                      \"url\": \"git@github.com:user/repo.git\"})\n  \
-                     • Advantages: Automated authentication via SSH keys, no token management\n  \
-                     • Disadvantages: Requires SSH key setup, may not work through restrictive firewalls\n  \
-                     • Use Case: Developer machines, private repositories, automated deploys with key-based auth\n\n\
+                     - Advantages: Automated authentication via SSH keys, no token management\n  \
+                     - Disadvantages: Requires SSH key setup, may not work through restrictive firewalls\n  \
+                     - Use Case: Developer machines, private repositories, automated deploys with key-based auth\n\n\
                      3. Git Protocol (Legacy):\n  \
                      git_remote_add({\"path\": \".\", \"name\": \"origin\", \
                      \"url\": \"git://github.com/user/repo.git\"})\n  \
-                     • Advantages: Fast, read-only access\n  \
-                     • Disadvantages: Deprecated by GitHub and most providers, no authentication\n  \
-                     • Use Case: Read-only mirrors, legacy systems only\n\n\
+                     - Advantages: Fast, read-only access\n  \
+                     - Disadvantages: Deprecated by GitHub and most providers, no authentication\n  \
+                     - Use Case: Read-only mirrors, legacy systems only\n\n\
                      4. File Protocol (Local Testing):\n  \
                      git_remote_add({\"path\": \".\", \"name\": \"local_backup\", \
                      \"url\": \"file:///mnt/backup/repo.git\"})\n  \
-                     • Advantages: Fast local access, useful for backups and testing\n  \
-                     • Disadvantages: Only works on same machine/mounted storage\n  \
-                     • Use Case: Local backups, testing multi-repo workflows",
+                     - Advantages: Fast local access, useful for backups and testing\n  \
+                     - Disadvantages: Only works on same machine/mounted storage\n  \
+                     - Use Case: Local backups, testing multi-repo workflows",
                 ),
             },
 
@@ -185,27 +176,27 @@ impl Tool for GitRemoteAddTool {
                 content: PromptMessageContent::text(
                     "Yes! Standard Git remote naming conventions exist:\n\n\
                      STANDARD REMOTES:\n\
-                     • origin: Your primary repository (where you push by default)\n  \
+                     - origin: Your primary repository (where you push by default)\n  \
                        git_remote_add({\"path\": \".\", \"name\": \"origin\", \
                        \"url\": \"https://github.com/user/repo.git\"})\n\
-                     • upstream: The authoritative upstream repository (typically in open-source)\n  \
+                     - upstream: The authoritative upstream repository (typically in open-source)\n  \
                        git_remote_add({\"path\": \".\", \"name\": \"upstream\", \
                        \"url\": \"https://github.com/upstream-owner/repo.git\"})\n\n\
                      COMMON ADDITIONAL REMOTES:\n\
-                     • backup: Off-site or local backup repository\n  \
+                     - backup: Off-site or local backup repository\n  \
                        git_remote_add({\"path\": \".\", \"name\": \"backup\", \
                        \"url\": \"file:///mnt/backup/repo.git\"})\n\
-                     • staging: Deployment staging environment\n  \
+                     - staging: Deployment staging environment\n  \
                        git_remote_add({\"path\": \".\", \"name\": \"staging\", \
                        \"url\": \"git@staging.example.com:repo.git\"})\n\
-                     • mirror: Read-only mirror for distribution\n  \
+                     - mirror: Read-only mirror for distribution\n  \
                        git_remote_add({\"path\": \".\", \"name\": \"mirror\", \
                        \"url\": \"https://mirror.example.com/repo.git\"})\n\n\
                      NAMING RULES:\n\
-                     ✓ Use lowercase, hyphens for multi-word names (e.g., \"github-mirror\")\n\
-                     ✓ Keep names short but descriptive\n\
-                     ✓ Avoid spaces and special characters\n\
-                     ✓ Use consistent names across team repositories",
+                     - Use lowercase, hyphens for multi-word names (e.g., \"github-mirror\")\n\
+                     - Keep names short but descriptive\n\
+                     - Avoid spaces and special characters\n\
+                     - Use consistent names across team repositories",
                 ),
             },
 
@@ -233,11 +224,11 @@ impl Tool for GitRemoteAddTool {
                        \"url\": \"https://github.com/upstream-owner/repo.git\"\n\
                      })\n\n\
                      4. Verify both remotes exist:\n  \
-                     origin  ➜ https://github.com/YOUR-USERNAME/repo.git (your fork)\n  \
-                     upstream ➜ https://github.com/upstream-owner/repo.git (official)\n\n\
+                     origin  -> https://github.com/YOUR-USERNAME/repo.git (your fork)\n  \
+                     upstream -> https://github.com/upstream-owner/repo.git (official)\n\n\
                      RATIONALE:\n\
-                     • origin: Your fork where you push your changes\n\
-                     • upstream: Official repository where you pull latest changes from\n\n\
+                     - origin: Your fork where you push your changes\n\
+                     - upstream: Official repository where you pull latest changes from\n\n\
                      TYPICAL WORKFLOW:\n\
                      git fetch upstream        # Get latest changes from official repo\n\
                      git rebase upstream/main  # Rebase your work on latest upstream\n\
@@ -262,11 +253,11 @@ impl Tool for GitRemoteAddTool {
                      SCENARIO 1: Adding remote that doesn't exist (force = false/omitted):\n  \
                      git_remote_add({\"path\": \".\", \"name\": \"origin\", \
                      \"url\": \"https://github.com/user/repo.git\"})\n  \
-                     ✓ SUCCESS: Remote created\n\n\
+                     SUCCESS: Remote created\n\n\
                      SCENARIO 2: Remote exists, force = false (Default):\n  \
                      git_remote_add({\"path\": \".\", \"name\": \"origin\", \
                      \"url\": \"https://github.com/different-url/repo.git\"})\n  \
-                     ✗ ERROR: Remote 'origin' already exists\n\n\
+                     ERROR: Remote 'origin' already exists\n\n\
                      SCENARIO 3: Need to change existing remote URL:\n  \
                      git_remote_add({\n  \
                        \"path\": \".\",\n  \
@@ -274,15 +265,15 @@ impl Tool for GitRemoteAddTool {
                        \"url\": \"https://github.com/new-url/repo.git\",\n  \
                        \"force\": true\n  \
                      })\n  \
-                     ✓ SUCCESS: Remote URL replaced\n\n\
+                     SUCCESS: Remote URL replaced\n\n\
                      IMPORTANT GOTCHAS:\n\
-                     • Changing origin URL after cloning:\n  \
+                     - Changing origin URL after cloning:\n  \
                        Idempotent means calling with same args is safe,\n  \
                        but changing URLs requires force=true\n\n\
-                     • force=true overwrites silently:\n  \
+                     - force=true overwrites silently:\n  \
                        Previous URL is lost without warning\n  \
                        Document remote changes in commit messages or team communication\n\n\
-                     • Verify URL after update:\n  \
+                     - Verify URL after update:\n  \
                        Always verify the new URL points to correct repository\n  \
                        Use 'git remote -v' to display all remotes and verify",
                 ),
@@ -317,10 +308,10 @@ impl Tool for GitRemoteAddTool {
                      Cause: URL points to inaccessible server (May be deferred to git pull/fetch)\n  \
                      Solution: Verify network connection, URL correctness\n\n\
                      BEST PRACTICE ERROR HANDLING:\n  \
-                     • Always verify tool output confirms remote was added\n  \
-                     • Use git_remote_list to verify after adding\n  \
-                     • Test fetch/push to ensure connectivity\n  \
-                     • Document remote purpose in repository documentation",
+                     - Always verify tool output confirms remote was added\n  \
+                     - Use git_remote_list to verify after adding\n  \
+                     - Test fetch/push to ensure connectivity\n  \
+                     - Document remote purpose in repository documentation",
                 ),
             },
         ])

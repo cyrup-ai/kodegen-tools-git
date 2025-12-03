@@ -1,9 +1,8 @@
 //! Git worktree add tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitWorktreeAddArgs, GitWorktreeAddPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitWorktreeAddArgs, GitWorktreeAddPromptArgs, GitWorktreeAddOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for adding worktrees
@@ -35,7 +34,7 @@ impl Tool for GitWorktreeAddTool {
         false // Fails if worktree exists
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -57,8 +56,6 @@ impl Tool for GitWorktreeAddTool {
             .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and icons
         let branch_display = args.branch.as_deref().unwrap_or("(detached)");
         let checkout_ref = args.branch.as_deref().unwrap_or("HEAD");
@@ -70,19 +67,13 @@ impl Tool for GitWorktreeAddTool {
             branch_display,
             checkout_ref
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "worktree_path": created_path.display().to_string(),
-            "branch": args.branch
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitWorktreeAddOutput {
+            success: true,
+            worktree_path: created_path.display().to_string(),
+            branch: args.branch.clone(),
+            message: format!("Worktree created at {}", created_path.display()),
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

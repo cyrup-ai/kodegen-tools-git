@@ -1,9 +1,8 @@
 //! Git diff tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitDiffArgs, GitDiffPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitDiffArgs, GitDiffPromptArgs, GitDiffOutput, GitDiffFile};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for displaying Git diffs
@@ -36,7 +35,7 @@ impl Tool for GitDiffTool {
         true // Same output for same inputs
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -56,31 +55,26 @@ impl Tool for GitDiffTool {
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary
-        contents.push(Content::text(format_diff_output(&stats, &args.from, &args.to)));
+        let summary = format_diff_output(&stats, &args.from, &args.to);
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "from": args.from,
-            "to": args.to.unwrap_or_else(|| "working directory".to_string()),
-            "files_changed": stats.total_files_changed,
-            "insertions": stats.total_additions,
-            "deletions": stats.total_deletions,
-            "files": stats.files.iter().map(|f| json!({
-                "path": f.path,
-                "change_type": format!("{:?}", f.change_type),
-                "additions": f.additions,
-                "deletions": f.deletions,
-            })).collect::<Vec<_>>()
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
+        // Build output files
+        let files: Vec<GitDiffFile> = stats.files.iter().map(|f| GitDiffFile {
+            path: f.path.clone(),
+            change_type: format!("{:?}", f.change_type),
+            additions: f.additions as u32,
+            deletions: f.deletions as u32,
+        }).collect();
 
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitDiffOutput {
+            success: true,
+            from: args.from.clone(),
+            to: args.to.clone().unwrap_or_else(|| "working directory".to_string()),
+            files_changed: stats.total_files_changed as u32,
+            insertions: stats.total_additions as u32,
+            deletions: stats.total_deletions as u32,
+            files,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

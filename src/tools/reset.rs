@@ -1,9 +1,8 @@
 //! Git reset tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitResetArgs, GitResetPromptArgs, ResetMode};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitResetArgs, GitResetPromptArgs, GitResetOutput, ResetMode};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for resetting repository to a specific commit
@@ -36,7 +35,7 @@ impl Tool for GitResetTool {
         true // Safe to reset to same target multiple times
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository and execute reset in a spawn_blocking context
@@ -78,8 +77,6 @@ impl Tool for GitResetTool {
         .map_err(|e| McpError::Other(anyhow::anyhow!("Task execution failed: {e}")))?
         .map_err(|e: anyhow::Error| McpError::Other(e))?;
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI colors and Nerd Font icons
         let mode_str = match mode {
             ResetMode::Soft => "soft",
@@ -92,19 +89,12 @@ impl Tool for GitResetTool {
              ℹ Mode: {} · Target: {}",
             mode_str, target_for_output
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "mode": mode_str,
-            "target": target_for_output
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitResetOutput {
+            success: true,
+            mode: mode_str.to_string(),
+            target: target_for_output,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

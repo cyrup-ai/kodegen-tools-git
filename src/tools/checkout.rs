@@ -1,9 +1,8 @@
 //! Git checkout tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitCheckoutArgs, GitCheckoutPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, Content, PromptMessageRole, PromptMessageContent};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitCheckoutArgs, GitCheckoutPromptArgs, GitCheckoutOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Detect reference type from target string
@@ -61,7 +60,7 @@ impl Tool for GitCheckoutTool {
         true // Checking out same ref multiple times is safe
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -117,29 +116,20 @@ impl Tool for GitCheckoutTool {
 
         let create_str = if args.create { "yes" } else { "no" };
 
-        let mut contents = Vec::new();
-
         // Terminal summary with ANSI blue color and Nerd Font icons
         let summary = format!(
             "\x1b[34m\u{E725} Checkout: {}\x1b[0m\n\
              \u{E948} Type: {} · Create: {}",
             args.target, ref_type, create_str
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "target": args.target,
-            "created": args.create,
-            "paths": args.paths,
-            "message": message
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitCheckoutOutput {
+            success: true,
+            target: args.target.clone(),
+            created: args.create,
+            paths: args.paths.clone(),
+            message,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {

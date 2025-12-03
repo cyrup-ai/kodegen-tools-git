@@ -1,9 +1,8 @@
 //! Git commit tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use kodegen_mcp_schema::git::{GitCommitArgs, GitCommitPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent, Content};
-use serde_json::json;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::git::{GitCommitArgs, GitCommitPromptArgs, GitCommitOutput};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
 use std::path::Path;
 
 /// Tool for creating Git commits
@@ -35,7 +34,7 @@ impl Tool for GitCommitTool {
         false // Creates new commits each time
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -61,7 +60,6 @@ impl Tool for GitCommitTool {
 
         let commit_id = commit_result.id;
         let file_count = commit_result.file_count;
-        let mut contents = Vec::new();
 
         // Terminal summary (2 lines with ANSI formatting)
         let commit_short = &commit_id.to_string()[..7.min(commit_id.to_string().len())];
@@ -71,20 +69,13 @@ impl Tool for GitCommitTool {
             "\x1b[32m\u{e725}  Commit: {}\x1b[0m\n\u{f292}  SHA: {} · Files: {}",
             first_line, commit_short, file_count
         );
-        contents.push(Content::text(summary));
 
-        // JSON metadata
-        let metadata = json!({
-            "success": true,
-            "commit_id": commit_id.to_string(),
-            "message": args.message,
-            "file_count": file_count
-        });
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
-
-        Ok(contents)
+        Ok(ToolResponse::new(summary, GitCommitOutput {
+            success: true,
+            commit_id: commit_id.to_string(),
+            message: args.message.clone(),
+            file_count,
+        }))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
