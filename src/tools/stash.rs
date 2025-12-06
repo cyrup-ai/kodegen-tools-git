@@ -1,8 +1,7 @@
 //! Git stash tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use kodegen_mcp_schema::git::{GitStashArgs, GitStashPromptArgs, GitStashOutput};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
+use kodegen_mcp_schema::git::{GitStashArgs, GitStashOutput, StashPrompts};
 use std::path::Path;
 
 /// Tool for stashing changes
@@ -11,7 +10,7 @@ pub struct GitStashTool;
 
 impl Tool for GitStashTool {
     type Args = GitStashArgs;
-    type PromptArgs = GitStashPromptArgs;
+    type Prompts = StashPrompts;
 
     fn name() -> &'static str {
         kodegen_mcp_schema::git::GIT_STASH
@@ -34,7 +33,7 @@ impl Tool for GitStashTool {
         false // Pop is not idempotent (consumes stash)
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -94,93 +93,5 @@ impl Tool for GitStashTool {
                 args.operation
             )))
         }
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![PromptArgument {
-            name: "scenario".to_string(),
-            title: None,
-            description: Some(
-                "Specific scenario to focus on (e.g., 'workflow', 'recovery', 'cleanup')".to_string()
-            ),
-            required: Some(false),
-        }]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text(
-                    "How do I use git_stash to temporarily save and apply changes?",
-                ),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    "The git_stash tool temporarily saves uncommitted changes without committing them, \
-                     allowing you to switch branches or clean your working directory. Here's how to use it:\n\n\
-                     \
-                     OPERATIONS\n\
-                     \n\
-                     1. Save changes to stash (default operation):\n\
-                        git_stash({\"path\": \"/path/to/repo\", \"operation\": \"save\", \n\
-                        \"message\": \"WIP: feature implementation\", \"include_untracked\": true})\n\n\
-                     2. Apply stash and remove it from the stack:\n\
-                        git_stash({\"path\": \"/path/to/repo\", \"operation\": \"pop\"})\n\n\
-                     \
-                     PARAMETERS\n\
-                     \n\
-                     - path: Required. Absolute path to the Git repository\n\
-                     - operation: Either \"save\" (default) or \"pop\"\n\
-                     - message: Optional. Descriptive text for save operations to identify the stash later\n\
-                     - include_untracked: Boolean (default: true). When true, includes new untracked files \
-                     in the stash\n\n\
-                     \
-                     KEY BEHAVIORS\n\
-                     \n\
-                     - Stash is a LIFO (Last-In-First-Out) stack: pop always retrieves the most recent stash\n\
-                     - Pop is destructive on the stash but non-destructive on working directory: \
-                     it removes the stash entry after applying\n\
-                     - Untracked files can be selectively included/excluded via include_untracked parameter\n\
-                     - Stashes are local to the repository and not pushed to remotes\n\
-                     - Save returns commit hash and stash name for reference\n\
-                     - Pop returns success status\n\n\
-                     \
-                     COMMON WORKFLOWS\n\
-                     \n\
-                     1. Switching branches without committing:\n\
-                        - Save current changes: git_stash save operation\n\
-                        - Switch branch: git_checkout with new branch\n\
-                        - Return to original branch and restore: git_stash pop operation\n\n\
-                     2. Cleaning working directory temporarily:\n\
-                        - Save all changes: git_stash save with include_untracked: true\n\
-                        - Run clean-directory operations\n\
-                        - Restore when done: git_stash pop\n\n\
-                     3. Separating concerns into different stashes:\n\
-                        - Make changes for feature A\n\
-                        - Save with message: git_stash save with message: \"Feature A work\"\n\
-                        - Make different changes for feature B\n\
-                        - Save with message: git_stash save with message: \"Feature B work\"\n\
-                        - Pop to apply most recent, or cherry-pick specific stashes\n\n\
-                     \
-                     RESPONSE FORMAT\n\
-                     \n\
-                     Both operations return:\n\
-                     - Human-readable summary with emoji indicators and status\n\
-                     - JSON metadata containing success flag and operation-specific details:\n\
-                       - Save: commit hash, stash name, message\n\
-                       - Pop: success flag\n\n\
-                     \
-                     IMPORTANT GOTCHAS\n\
-                     \n\
-                     - Pop fails gracefully if stash is empty\n\
-                     - Include_untracked should be true to capture new files (not just modifications)\n\
-                     - Stashes don't prevent branch switching; use for temporary work\n\
-                     - Message parameter is ignored in pop operations\n\
-                     - Path must be a valid Git repository or operation fails",
-                ),
-            },
-        ])
     }
 }

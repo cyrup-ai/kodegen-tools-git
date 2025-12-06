@@ -1,8 +1,7 @@
 //! Git checkout tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use kodegen_mcp_schema::git::{GitCheckoutArgs, GitCheckoutPromptArgs, GitCheckoutOutput};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
+use kodegen_mcp_schema::git::{GitCheckoutArgs, GitCheckoutOutput, GitCheckoutPrompts};
 use std::path::Path;
 
 /// Detect reference type from target string
@@ -37,7 +36,7 @@ pub struct GitCheckoutTool;
 
 impl Tool for GitCheckoutTool {
     type Args = GitCheckoutArgs;
-    type PromptArgs = GitCheckoutPromptArgs;
+    type Prompts = GitCheckoutPrompts;
 
     fn name() -> &'static str {
         kodegen_mcp_schema::git::GIT_CHECKOUT
@@ -60,7 +59,7 @@ impl Tool for GitCheckoutTool {
         true // Checking out same ref multiple times is safe
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -130,66 +129,5 @@ impl Tool for GitCheckoutTool {
             paths: args.paths.clone(),
             message,
         }))
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![PromptArgument {
-            name: "scenario".to_string(),
-            title: None,
-            description: Some(
-                "Type of scenario to focus on (e.g., 'branch_switch', 'file_restore', 'commit_checkout', 'create_and_checkout')"
-                    .to_string(),
-            ),
-            required: Some(false),
-        }]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text(
-                    "How do I use git_checkout to switch branches, restore files, and create branches?",
-                ),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    "The git_checkout tool can switch to branches/tags/commits and restore files from references.\n\n\
-                     1. Basic branch switch:\n\
-                        git_checkout({\"path\": \".\", \"target\": \"main\"})\n\n\
-                     2. Create and checkout branch in one operation:\n\
-                        git_checkout({\"path\": \".\", \"target\": \"feature-x\", \"create\": true})\n\n\
-                     3. Checkout specific commit by SHA (full or short):\n\
-                        git_checkout({\"path\": \".\", \"target\": \"a1b2c3d\"})\n\n\
-                     4. Checkout tag:\n\
-                        git_checkout({\"path\": \".\", \"target\": \"v1.0.0\"})\n\n\
-                     5. Restore specific files from another branch:\n\
-                        git_checkout({\"path\": \".\", \"target\": \"main\", \"paths\": [\"config.json\", \"src/app.rs\"]})\n\n\
-                     6. Force checkout (discard local changes):\n\
-                        git_checkout({\"path\": \".\", \"target\": \"develop\", \"force\": true})\n\n\
-                     Key parameters:\n\
-                     - path: Repository directory (required)\n\
-                     - target: Branch name, tag (v-prefixed), or commit hash (required)\n\
-                     - paths: Optional file paths to restore (without paths, switches branches)\n\
-                     - create: Automatically create the branch if it doesn't exist\n\
-                     - force: Discard local changes and untracked files\n\n\
-                     Reference detection (automatic):\n\
-                     - Commits: 7-40 hex characters (e.g., 'a1b2c3d' or full SHA)\n\
-                     - Tags: Start with 'v' followed by digit (e.g., 'v1.0.0', 'v2.1.3')\n\
-                     - Branches: Everything else (e.g., 'main', 'feature/new-ui')\n\n\
-                     File restoration workflow:\n\
-                     - Without paths: Switches entire branch/commit\n\
-                     - With paths: Restores only specified files from target reference\n\
-                     - Useful for cherry-picking files from other branches without full checkout\n\n\
-                     Important safety notes:\n\
-                     - Checkout fails if local changes would be overwritten (unless force=true)\n\
-                     - force flag discards ALL uncommitted changes - use with caution\n\
-                     - create flag only works with branch names, not with commits or tags\n\
-                     - File restoration with paths does not change current branch\n\
-                     - Short commit SHAs must be 7+ characters to avoid ambiguity",
-                ),
-            },
-        ])
     }
 }

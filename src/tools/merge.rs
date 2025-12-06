@@ -1,8 +1,7 @@
 //! Git merge tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use kodegen_mcp_schema::git::{GitMergeArgs, GitMergePromptArgs, GitMergeOutput};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
+use kodegen_mcp_schema::git::{GitMergeArgs, GitMergeOutput, MergePrompts};
 use std::path::Path;
 
 /// Tool for merging branches
@@ -11,7 +10,7 @@ pub struct GitMergeTool;
 
 impl Tool for GitMergeTool {
     type Args = GitMergeArgs;
-    type PromptArgs = GitMergePromptArgs;
+    type Prompts = MergePrompts;
 
     fn name() -> &'static str {
         kodegen_mcp_schema::git::GIT_MERGE
@@ -34,7 +33,7 @@ impl Tool for GitMergeTool {
         false // Creates new commits
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -87,52 +86,5 @@ impl Tool for GitMergeTool {
             commit_id,
             message: format!("Merged '{}' ({})", args.branch, merge_type),
         }))
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![PromptArgument {
-            name: "merge_strategy".to_string(),
-            title: None,
-            description: Some(
-                "Type of merge example to focus on (e.g., 'fast_forward', 'merge_commit', 'conflicts')".to_string()
-            ),
-            required: Some(false),
-        }]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text(
-                    "How do I merge branches with git_merge? What are the different merge strategies?",
-                ),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    "The git_merge tool integrates changes from one branch into another. It supports \
-                     two merge strategies:\n\n\
-                     1. Fast-forward (default): Directly moves HEAD to the merged commit if possible\n\
-                        git_merge({\"path\": \".\", \"branch\": \"feature\", \"fast_forward\": true})\n\n\
-                     2. Merge commit: Always creates a merge commit, even if fast-forward is possible\n\
-                        git_merge({\"path\": \".\", \"branch\": \"feature\", \"fast_forward\": false})\n\n\
-                     Key parameters:\n\
-                     - path: Repository directory\n\
-                     - branch: Branch name to merge into current branch\n\
-                     - fast_forward: Allow fast-forward merges (default: true)\n\
-                     - auto_commit: Automatically commit after merge (default: true)\n\n\
-                     Common workflows:\n\
-                     - Feature branch merge: merge feature into main with merge commit\n\
-                     - Rebase alternative: use fast_forward for linear history\n\
-                     - Manual conflict resolution: use auto_commit=false to stage changes\n\n\
-                     Important notes:\n\
-                     - Conflicts cause the merge to fail (prevents accidental commits)\n\
-                     - Use auto_commit=false to review and stage changes before committing\n\
-                     - Fast-forward requires linear history (no diverging commits)\n\
-                     - Merge commits preserve branch history in the repository",
-                ),
-            },
-        ])
     }
 }

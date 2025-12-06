@@ -1,8 +1,7 @@
 //! Git log tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use kodegen_mcp_schema::git::{GitLogArgs, GitLogPromptArgs, GitLogOutput, GitCommitInfo, GitAuthorInfo};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
+use kodegen_mcp_schema::git::{GitLogArgs, GitLogOutput, GitCommitInfo, GitAuthorInfo, LogPrompts};
 use std::path::Path;
 use tokio_stream::StreamExt;
 
@@ -12,7 +11,7 @@ pub struct GitLogTool;
 
 impl Tool for GitLogTool {
     type Args = GitLogArgs;
-    type PromptArgs = GitLogPromptArgs;
+    type Prompts = LogPrompts;
 
     fn name() -> &'static str {
         kodegen_mcp_schema::git::GIT_LOG
@@ -35,7 +34,7 @@ impl Tool for GitLogTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -111,58 +110,5 @@ impl Tool for GitLogTool {
             commits,
             count,
         }))
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text(
-                    "How do I use the git_log tool to view commit history and search for specific commits?",
-                ),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    "The git_log tool displays commit history from a Git repository. Here's how to use it:\n\n\
-                     ## Basic Usage\n\
-                     View recent commits: git_log({\"path\": \".\"})\n\n\
-                     ## Limiting Results\n\
-                     View last 10 commits: git_log({\"path\": \".\", \"max_count\": 10})\n\
-                     Skip first 20 commits: git_log({\"path\": \".\", \"skip\": 20})\n\
-                     Skip 20, show next 10: git_log({\"path\": \".\", \"skip\": 20, \"max_count\": 10})\n\n\
-                     ## Filtering by File\n\
-                     Find commits affecting a file: git_log({\"path\": \".\", \"path_filter\": \"src/main.rs\"})\n\
-                     Commits for specific path (last 5): git_log({\"path\": \".\", \"path_filter\": \"docs/\", \"max_count\": 5})\n\n\
-                     ## Output Format\n\
-                     Each commit includes:\n\
-                     - id: Full commit SHA\n\
-                     - author.name: Committer name\n\
-                     - author.email: Committer email\n\
-                     - author.time: Commit timestamp (RFC 3339 format)\n\
-                     - summary: Commit message subject line\n\
-                     - time: Commit creation timestamp\n\n\
-                     ## Common Patterns\n\
-                     Find a change in specific file: Use path_filter to narrow search, then inspect output\n\
-                     Efficient history browsing: Use pagination (max_count + skip) to avoid loading entire history\n\
-                     Debugging merges: View all commits affecting a directory/file to trace changes\n\n\
-                     ## Best Practices\n\
-                     - Use max_count to limit results and improve performance on large repositories\n\
-                     - Combine path_filter with max_count when searching within a specific file or directory\n\
-                     - The skip parameter is useful for pagination: request first batch, then next batch, etc.\n\
-                     - Commits are ordered from newest to oldest (chronological reverse order)\n\
-                     - Empty results mean no commits match the filter criteria\n\n\
-                     ## Important Notes\n\
-                     - This tool is read-only and safe to call multiple times\n\
-                     - Path must be a valid repository directory\n\
-                     - path_filter uses Git's pathspec syntax (glob patterns work)\n\
-                     - Large skip values may be slow on large repositories",
-                ),
-            },
-        ])
     }
 }

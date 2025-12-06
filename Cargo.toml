@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_tools_git"
-version = "0.6.1"
+version = "0.8.0"
 edition = "2024"
 description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
 authors = ["KODEGEN.ᴀɪ"]
@@ -29,11 +29,10 @@ macos = "public.app-category.developer-tools"
 
 
 [dependencies]
-kodegen_mcp_schema = { version = "0.6" }
-kodegen_mcp_tool = { version = "0.6" }
-kodegen_utils = { version = "0.6" }
-kodegen_config_manager = { version = "0.6" }
-kodegen_server_http = { version = "0.6" }
+kodegen_mcp_schema = { version = "0.8" }
+kodegen_utils = { version = "0.8" }
+kodegen_config_manager = { version = "0.8" }
+kodegen_server_http = { version = "0.8" }
 
 schemars = "1"
 anyhow = "1"
@@ -76,7 +75,7 @@ similar     = "2.6"
 regex       = "1.10"
 
 [dev-dependencies]
-kodegen_mcp_client = { version = "0.6" }
+kodegen_mcp_client = { version = "0.8" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 http = "1"
 uuid = { version = "1", features = ["v4"] }

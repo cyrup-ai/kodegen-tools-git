@@ -1,10 +1,9 @@
 //! Git history tool - investigate how code evolved
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
 use kodegen_mcp_schema::git::{
-    GitHistoryArgs, GitHistoryCommit, GitHistoryOutput, GitHistoryPromptArgs, GIT_HISTORY,
+    GitHistoryArgs, GitHistoryCommit, GitHistoryOutput, GIT_HISTORY, HistoryPrompts,
 };
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::path::Path;
 
 /// Tool for investigating file history with actual diffs
@@ -13,7 +12,7 @@ pub struct GitHistoryTool;
 
 impl Tool for GitHistoryTool {
     type Args = GitHistoryArgs;
-    type PromptArgs = GitHistoryPromptArgs;
+    type Prompts = HistoryPrompts;
 
     fn name() -> &'static str {
         GIT_HISTORY
@@ -41,7 +40,7 @@ impl Tool for GitHistoryTool {
         &self,
         args: Self::Args,
         _ctx: ToolExecutionContext,
-    ) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    ) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let repo = crate::open_repo(Path::new(&args.path))
             .await
             .map_err(|e| McpError::Other(anyhow::anyhow!("{e}")))?
@@ -158,58 +157,5 @@ impl Tool for GitHistoryTool {
                 Ok(ToolResponse::new(summary, output))
             }
         }
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text(
-                    "How do I investigate code changes with git_history?",
-                ),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    r#"git_history shows how code evolved with actual diffs.
-
-## See Recent Changes
-```json
-{"path": ".", "file": "src/auth.rs"}
-```
-
-## Find When Code Was Modified
-```json
-{"path": ".", "file": "src/auth.rs", "search": "validate_token"}
-```
-
-## Find When Code Was Added
-```json
-{"path": ".", "file": "src/auth.rs", "search": "^\\+.*new_function"}
-```
-
-## Find When Code Was Removed
-```json
-{"path": ".", "file": "src/auth.rs", "search": "^-.*deprecated"}
-```
-
-## Compare Two Versions
-```json
-{"path": ".", "file": "src/auth.rs", "since": "v1.0", "until": "v2.0"}
-```
-
-## Limit Results
-```json
-{"path": ".", "file": "src/auth.rs", "limit": 5}
-```
-
-Output shows commit summaries with actual +/- diffs inline."#,
-                ),
-            },
-        ])
     }
 }

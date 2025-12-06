@@ -1,8 +1,7 @@
 //! Git repository cloning tool
 
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use kodegen_mcp_schema::git::{GitCloneArgs, GitClonePromptArgs, GitCloneOutput};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
+use kodegen_mcp_schema::git::{GitCloneArgs, GitCloneOutput, ClonePrompts};
 
 /// Tool for cloning remote Git repositories
 #[derive(Clone)]
@@ -10,7 +9,7 @@ pub struct GitCloneTool;
 
 impl Tool for GitCloneTool {
     type Args = GitCloneArgs;
-    type PromptArgs = GitClonePromptArgs;
+    type Prompts = ClonePrompts;
 
     fn name() -> &'static str {
         kodegen_mcp_schema::git::GIT_CLONE
@@ -38,7 +37,7 @@ impl Tool for GitCloneTool {
         true // Makes network requests
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let mut opts = crate::CloneOpts::new(&args.url, &args.path);
 
         if let Some(depth) = args.depth {
@@ -95,46 +94,5 @@ impl Tool for GitCloneTool {
             depth: args.depth,
             message: format!("Cloned {} to {}", args.url, args.path),
         }))
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text("How do I clone a Git repository?"),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    "The git_clone tool clones remote Git repositories to your local filesystem:\n\n\
-                     1. Basic clone (full history):\n\
-                        git_clone({\"url\": \"https://github.com/user/repo.git\", \"path\": \"./repo\"})\n\n\
-                     2. Clone a specific branch:\n\
-                        git_clone({\"url\": \"https://github.com/user/repo.git\", \"path\": \"./repo\", \"branch\": \"develop\"})\n\n\
-                     3. Shallow clone (limited history, faster):\n\
-                        git_clone({\"url\": \"https://github.com/user/repo.git\", \"path\": \"./repo\", \"depth\": 1})\n\n\
-                     4. Combine shallow with branch:\n\
-                        git_clone({\"url\": \"https://github.com/user/repo.git\", \"path\": \"./repo\", \"branch\": \"main\", \"depth\": 1})\n\n\
-                     Key parameters:\n\
-                     - url: Repository URL (https://, git://, or file URLs)\n\
-                     - path: Local destination path (must not exist)\n\
-                     - branch: Optional specific branch to checkout (defaults to repository default)\n\
-                     - depth: Optional shallow clone depth (1 = just latest commit, improves speed)\n\n\
-                     When to use shallow clones:\n\
-                     - Large repositories with long history (saves bandwidth and disk space)\n\
-                     - CI/CD pipelines where full history isn't needed\n\
-                     - Initial downloads to iterate quickly\n\n\
-                     Important notes:\n\
-                     - Destination path must not already exist (will error if it does)\n\
-                     - Returns cloned branch name and metadata\n\
-                     - Shallow clones limit git operations (rebasing, merging may have restrictions)\n\
-                     - URL must be accessible from the current network/environment",
-                ),
-            },
-        ])
     }
 }

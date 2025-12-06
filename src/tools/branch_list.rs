@@ -1,9 +1,8 @@
 //! Git branch listing tool
 
 use gix::bstr::ByteSlice;
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use kodegen_mcp_schema::git::{GitBranchListArgs, GitBranchListPromptArgs, GitBranchListOutput};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent};
+use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolResponse, McpError};
+use kodegen_mcp_schema::git::{GitBranchListArgs, GitBranchListOutput, BranchListPrompts};
 use std::path::Path;
 
 /// Tool for listing Git branches
@@ -12,7 +11,7 @@ pub struct GitBranchListTool;
 
 impl Tool for GitBranchListTool {
     type Args = GitBranchListArgs;
-    type PromptArgs = GitBranchListPromptArgs;
+    type Prompts = BranchListPrompts;
 
     fn name() -> &'static str {
         kodegen_mcp_schema::git::GIT_BRANCH_LIST
@@ -34,7 +33,7 @@ impl Tool for GitBranchListTool {
         true // Safe to call repeatedly
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let path = Path::new(&args.path);
 
         // Open repository
@@ -85,52 +84,5 @@ impl Tool for GitBranchListTool {
             branches,
             count,
         }))
-    }
-
-    fn prompt_arguments() -> Vec<PromptArgument> {
-        vec![PromptArgument {
-            name: "level".to_string(),
-            title: None,
-            description: Some(
-                "Detail level for examples (e.g., 'basic', 'advanced')".to_string()
-            ),
-            required: Some(false),
-        }]
-    }
-
-    async fn prompt(&self, _args: Self::PromptArgs) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::text(
-                    "How do I use git_branch_list to see all branches in a repository?",
-                ),
-            },
-            PromptMessage {
-                role: PromptMessageRole::Assistant,
-                content: PromptMessageContent::text(
-                    "The git_branch_list tool enumerates all local branches in a Git repository. \
-                     Here's how to use it:\n\n\
-                     Basic usage:\n\
-                     git_branch_list({\"path\": \"/path/to/repo\"})\n\n\
-                     This returns:\n\
-                     1. A human-readable summary showing total branch count and current branch\n\
-                     2. A JSON response with:\n\
-                        - success: boolean indicating operation success\n\
-                        - branches: array of branch names\n\
-                        - count: total number of branches\n\n\
-                     Key behaviors:\n\
-                     - Lists only local branches (not remote tracking branches)\n\
-                     - Highlights the currently checked-out branch\n\
-                     - Returns empty list if the path is not a Git repository\n\
-                     - Works with any repository format (bare or working tree)\n\n\
-                     Common use cases:\n\
-                     - Discovering available branches before checkout\n\
-                     - Validating branch naming conventions\n\
-                     - Automating workflows that depend on branch enumeration\n\
-                     - Monitoring branch cleanup and maintenance",
-                ),
-            },
-        ])
     }
 }
