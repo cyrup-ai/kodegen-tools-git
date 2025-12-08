@@ -274,7 +274,7 @@ pub mod git {
 /// Blocks until the server shuts down.
 ///
 /// # Arguments
-/// * `addr` - Socket address to bind to (e.g., "127.0.0.1:30450")
+/// * `addr` - Socket address to bind to (e.g., "127.0.0.1:30444")
 /// * `tls_cert` - Optional path to TLS certificate file
 /// * `tls_key` - Optional path to TLS private key file
 ///
@@ -285,71 +285,18 @@ pub async fn start_server(
     tls_cert: Option<std::path::PathBuf>,
     tls_key: Option<std::path::PathBuf>,
 ) -> anyhow::Result<kodegen_server_http::ServerHandle> {
-    use kodegen_server_http::{create_http_server, Managers, RouterSet, register_tool};
-    use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
-    use std::time::Duration;
+    // Bind to the address first
+    let listener = tokio::net::TcpListener::bind(addr).await
+        .map_err(|e| anyhow::anyhow!("Failed to bind to {}: {}", addr, e))?;
 
+    // Convert separate cert/key into Option<(cert, key)> tuple
     let tls_config = match (tls_cert, tls_key) {
         (Some(cert), Some(key)) => Some((cert, key)),
         _ => None,
     };
 
-    let shutdown_timeout = Duration::from_secs(30);
-
-    create_http_server("git", addr, tls_config, shutdown_timeout, Duration::ZERO, |_config, _tracker| {
-        Box::pin(async move {
-            let mut tool_router = ToolRouter::new();
-            let mut prompt_router = PromptRouter::new();
-            let managers = Managers::new();
-
-            // Register all 27 git tools (zero-state structs, no constructors)
-
-            // Repository initialization (4 tools)
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitInitTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitOpenTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCloneTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitDiscoverTool);
-
-            // Branch operations (4 tools)
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchCreateTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchDeleteTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchListTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitBranchRenameTool);
-
-            // Core git operations (6 tools)
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCommitTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitLogTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitHistoryTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitDiffTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitAddTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitCheckoutTool);
-
-            // Remote operations (7 tools)
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitFetchTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitMergeTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitPullTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitPushTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteAddTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteListTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitRemoteRemoveTool);
-
-            // Worktree operations (6 tools)
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeAddTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeRemoveTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeListTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeLockTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreeUnlockTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitWorktreePruneTool);
-
-            // Other operations (4 tools)
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitResetTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStashTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitStatusTool);
-            (tool_router, prompt_router) = register_tool(tool_router, prompt_router, GitTagTool);
-
-            Ok(RouterSet::new(tool_router, prompt_router, managers))
-        })
-    }).await
+    // Delegate to start_server_with_listener
+    start_server_with_listener(listener, tls_config).await
 }
 
 /// Start git HTTP server using pre-bound listener (TOCTOU-safe)
@@ -367,14 +314,12 @@ pub async fn start_server_with_listener(
     listener: tokio::net::TcpListener,
     tls_config: Option<(std::path::PathBuf, std::path::PathBuf)>,
 ) -> anyhow::Result<kodegen_server_http::ServerHandle> {
-    use kodegen_server_http::{create_http_server_with_listener, Managers, RouterSet, register_tool};
+    use kodegen_server_http::{ServerBuilder, Managers, RouterSet, register_tool};
     use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
-    use std::time::Duration;
 
-    let shutdown_timeout = Duration::from_secs(30);
-
-    create_http_server_with_listener("git", listener, tls_config, shutdown_timeout, Duration::ZERO, |_config, _tracker| {
-        Box::pin(async move {
+    let mut builder = ServerBuilder::new()
+        .category(kodegen_config::CATEGORY_GIT)
+        .register_tools(|| async {
             let mut tool_router = ToolRouter::new();
             let mut prompt_router = PromptRouter::new();
             let managers = Managers::new();
@@ -426,5 +371,12 @@ pub async fn start_server_with_listener(
 
             Ok(RouterSet::new(tool_router, prompt_router, managers))
         })
-    }).await
+        .with_listener(listener);
+
+    // Add TLS config if provided
+    if let Some((cert, key)) = tls_config {
+        builder = builder.with_tls_config(cert, key);
+    }
+
+    builder.serve().await
 }
