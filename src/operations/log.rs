@@ -299,7 +299,6 @@ fn change_matches_path(change_location: &gix::bstr::BStr, filter_path: &std::pat
 
     #[cfg(windows)]
     let filter_bytes = {
-        use std::os::windows::ffi::OsStrExt;
         // Windows paths are UTF-16, need to convert to UTF-8 bytes
         // Fall back to string conversion
         match filter_path.to_str() {
