@@ -11,7 +11,7 @@ Memory-efficient, blazing-fast Git operations for AI code generation agents via 
 
 Part of the [KODEGEN.ai](https://kodegen.ai) ecosystem.
 
-## Features 
+## Features
 
 - **🚀 High Performance**: Built on [gix](https://github.com/Byron/gitoxide) (Gitoxide), a fast Rust Git implementation
 - **⚡ Async-First**: Fully asynchronous API with tokio integration
