@@ -158,7 +158,7 @@ impl Tool for GitStatusTool {
         };
 
         // Terminal summary with ANSI colors and Nerd Font icons
-        let mut summary = String::from("\x1b[36m 󰊢 Repository Status\x1b[0m\n");
+        let mut summary = String::from("\x1b[36mRepository Status\x1b[0m\n");
 
         summary.push_str(&format!(
             "  Branch: {}\n\

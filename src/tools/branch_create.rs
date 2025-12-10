@@ -59,7 +59,7 @@ impl Tool for GitBranchCreateTool {
 
         // Terminal summary with ANSI colors and Nerd Font icons
         let summary = format!(
-            "󰊢 \x1b[32mBranch Created: {}\x1b[0m\n\
+            "\x1b[32mBranch Created: {}\x1b[0m\n\
               From: {} · Checkout: {}",
             args.branch,
             args.from_branch.as_deref().unwrap_or("HEAD"),

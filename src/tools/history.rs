@@ -79,7 +79,7 @@ impl Tool for GitHistoryTool {
                 };
 
                 let mut summary = format!(
-                    "\x1b[36m󰄶 File History: {}\x1b[0m\n 󰗚 Found: {} commits{}\n 󰈖 Examined: {} total commits\n\n",
+                    "\x1b[36mFile History: {}\x1b[0m\n Found: {} commits{}\n Examined: {} total commits\n\n",
                     file, commits.len(), search_note, total_examined
                 );
 
@@ -135,7 +135,7 @@ impl Tool for GitHistoryTool {
                 diff,
             } => {
                 let summary = format!(
-                    "\x1b[36m󰄶 File History: {} ({} → {})\x1b[0m\n 󰗚 Changes: \x1b[32m+{}\x1b[0m \x1b[31m-{}\x1b[0m lines\n\n\
+                    "\x1b[36mFile History: {} ({} → {})\x1b[0m\n Changes: \x1b[32m+{}\x1b[0m \x1b[31m-{}\x1b[0m lines\n\n\
                      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\
                      {}\n",
                     file, since, until, additions, deletions, diff

@@ -58,7 +58,7 @@ impl Tool for GitFetchTool {
         let prune_status = if args.prune { "yes" } else { "no" };
 
         let summary = format!(
-            "\x1b[36m󰇚 Fetch: {}\x1b[0m\n 󰗚 Refs updated: synced · Prune: {}",
+            "\x1b[36mFetch: {}\x1b[0m\n Refs updated: synced · Prune: {}",
             args.remote, prune_status
         );
 

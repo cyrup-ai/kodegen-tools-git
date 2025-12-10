@@ -51,8 +51,8 @@ impl Tool for GitBranchDeleteTool {
         // Terminal summary with colored output and icons
         let force_str = if args.force { "yes" } else { "no" };
         let summary = format!(
-            "\x1b[31m󰆴 Branch Deleted: {}\x1b[0m\n\
-             󰋽 Force: {}",
+            "\x1b[31mBranch Deleted: {}\x1b[0m\n\
+             Force: {}",
             args.branch,
             force_str
         );

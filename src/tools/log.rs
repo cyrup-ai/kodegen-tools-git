@@ -89,7 +89,7 @@ impl Tool for GitLogTool {
 
         // Build summary
         let summary = if commits.is_empty() {
-            "\x1b[36m󰄶 Commit History\x1b[0m\n 󰗚 Commits: 0 · No commits found".to_string()
+            "\x1b[36mCommit History\x1b[0m\n Commits: 0 · No commits found".to_string()
         } else {
             let latest_message = commits
                 .first()
@@ -97,7 +97,7 @@ impl Tool for GitLogTool {
                 .unwrap_or("");
 
             format!(
-                "\x1b[36m󰄶 Commit History\x1b[0m\n 󰗚 Commits: {} · Latest: {}",
+                "\x1b[36mCommit History\x1b[0m\n Commits: {} · Latest: {}",
                 commits.len(),
                 latest_message
             )

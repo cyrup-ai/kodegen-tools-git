@@ -79,8 +79,8 @@ impl Tool for GitCloneTool {
         // Line 1: Green colored clone action with URL
         // Line 2: White metadata line
         let summary = format!(
-            "\x1b[32m󰇚 Clone: {}\x1b[0m\n\
-             󰉋 {}",
+            "\x1b[32mClone: {}\x1b[0m\n\
+             {}",
             args.url,
             metadata_parts.join(" · ")
         );
