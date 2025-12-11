@@ -10,6 +10,7 @@ use std::sync::atomic::AtomicBool;
 use gix::progress::Discard;
 use gix::remote;
 
+use super::auth;
 use crate::runtime::AsyncTask;
 use crate::{GitError, GitResult, RepoHandle};
 
@@ -97,8 +98,9 @@ pub fn clone_repo(opts: CloneOpts) -> AsyncTask<GitResult<RepoHandle>> {
         let parsed_url = gix::url::parse(url.as_str().into())
             .map_err(|e| GitError::InvalidInput(format!("Invalid URL '{url}': {e}")))?;
 
-        // Prepare clone operation
-        let mut prepare = gix::prepare_clone(parsed_url, &destination).map_err(GitError::from)?;
+        // Prepare clone operation with auth config
+        let prepare = gix::prepare_clone(parsed_url, &destination).map_err(GitError::from)?;
+        let mut prepare = auth::configure_clone(prepare);
 
         // Configure shallow clone if requested (NonZeroU32 validates depth > 0)
         if let Some(depth) = shallow {
@@ -120,13 +122,31 @@ pub fn clone_repo(opts: CloneOpts) -> AsyncTask<GitResult<RepoHandle>> {
             // Bare clone: fetch only, no working tree
             let (repo, _outcome) = prepare
                 .fetch_only(Discard, &NEVER_INTERRUPT)
-                .map_err(|e| GitError::Gix(Box::new(e)))?;
+                .map_err(|e| {
+                    let err_str = e.to_string();
+                    if err_str.to_lowercase().contains("authentication")
+                        || err_str.contains("Permission denied")
+                    {
+                        GitError::InvalidInput(auth::auth_error_message(&url))
+                    } else {
+                        GitError::Gix(Box::new(e))
+                    }
+                })?;
             repo
         } else {
             // Full clone: fetch and checkout working tree
             let (mut prepare_checkout, _outcome) = prepare
                 .fetch_then_checkout(Discard, &NEVER_INTERRUPT)
-                .map_err(|e| GitError::Gix(Box::new(e)))?;
+                .map_err(|e| {
+                    let err_str = e.to_string();
+                    if err_str.to_lowercase().contains("authentication")
+                        || err_str.contains("Permission denied")
+                    {
+                        GitError::InvalidInput(auth::auth_error_message(&url))
+                    } else {
+                        GitError::Gix(Box::new(e))
+                    }
+                })?;
 
             let (repo, _outcome) = prepare_checkout
                 .main_worktree(Discard, &NEVER_INTERRUPT)

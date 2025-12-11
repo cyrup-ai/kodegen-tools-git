@@ -1,9 +1,8 @@
 //! Core push operations
 
-use crate::{GitError, GitResult, RepoHandle};
 use super::{PushOpts, PushResult};
-use tokio::process::Command;
-use tokio::time::Duration;
+use crate::operations::auth::{self, GitCommandOpts};
+use crate::{GitError, GitResult, RepoHandle};
 
 /// Push to remote repository
 ///
@@ -79,70 +78,29 @@ pub async fn push(repo: &RepoHandle, opts: PushOpts) -> GitResult<PushResult> {
         timeout_secs,
     } = opts;
 
-    // Default 5 minute timeout (configurable via opts)
-    let timeout_duration = Duration::from_secs(timeout_secs.unwrap_or(300));
-
-    let mut cmd = Command::new("git");
-    cmd.current_dir(&work_dir);
-    cmd.arg("push");
-
-    // Prevent credential prompts from hanging
-    cmd.env("GIT_TERMINAL_PROMPT", "0");
-
-    // Force English output for consistent parsing (locale-independent)
-    cmd.env("LC_ALL", "C");
-    cmd.env("LANG", "C");
-
-    // Capture stdout and stderr
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
+    // Build args
+    let mut args: Vec<&str> = vec!["push"];
 
     if force {
-        cmd.arg("--force");
+        args.push("--force");
     }
-
     if tags {
-        cmd.arg("--tags");
+        args.push("--tags");
     }
 
-    cmd.arg(&remote);
+    args.push(&remote);
 
-    for refspec in &refspecs {
-        cmd.arg(refspec);
+    // Need owned strings for refspecs to extend lifetime
+    let refspec_strs: Vec<String> = refspecs.clone();
+    for r in &refspec_strs {
+        args.push(r);
     }
 
-    // Spawn child process with handle for proper cancellation
-    let mut child = cmd.spawn().map_err(GitError::Io)?;
-
-    // Wait with timeout and cancellation support using select!
-    let status = tokio::select! {
-        result = child.wait() => {
-            result.map_err(GitError::Io)?
-        }
-        () = tokio::time::sleep(timeout_duration) => {
-            // Timeout - kill the child process
-            let _ = child.kill().await;
-            return Err(GitError::InvalidInput(format!("Push operation timed out after {} seconds", timeout_secs.unwrap_or(300))));
-        }
-    };
-
-    // Read stdout and stderr after process completes
-    use tokio::io::AsyncReadExt;
-    let mut stdout_data = Vec::new();
-    let mut stderr_data = Vec::new();
-
-    if let Some(mut stdout) = child.stdout.take() {
-        let _ = stdout.read_to_end(&mut stdout_data).await;
-    }
-    if let Some(mut stderr) = child.stderr.take() {
-        let _ = stderr.read_to_end(&mut stderr_data).await;
-    }
-
-    let output = std::process::Output {
-        status,
-        stdout: stdout_data,
-        stderr: stderr_data,
-    };
+    let output = auth::run_git_command(
+        &args,
+        GitCommandOpts::new(work_dir).with_timeout(timeout_secs.unwrap_or(300)),
+    )
+    .await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -184,6 +142,7 @@ pub async fn push(repo: &RepoHandle, opts: PushOpts) -> GitResult<PushResult> {
                 || trimmed.starts_with('+')
         })
         .count();
+
     // Conservative tag counting: indicate whether tags were pushed
     // without attempting fragile output parsing
     let tags_pushed = if tags && output.status.success() {

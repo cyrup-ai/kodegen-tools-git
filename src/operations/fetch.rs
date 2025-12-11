@@ -10,6 +10,7 @@ use gix::bstr::ByteSlice;
 use gix::progress::Discard;
 use gix::remote::ref_map;
 
+use super::auth;
 use crate::{GitError, GitResult, RepoHandle};
 
 /// Options for `fetch` operation with builder pattern.
@@ -78,7 +79,20 @@ pub async fn fetch(repo: RepoHandle, opts: FetchOpts) -> GitResult<()> {
         // Connect to the remote
         let connection = remote_ref
             .connect(gix::remote::Direction::Fetch)
-            .map_err(|e| GitError::Gix(e.into()))?;
+            .map_err(|e| {
+                let err_str = e.to_string();
+                if err_str.to_lowercase().contains("authentication")
+                    || err_str.contains("Permission denied")
+                {
+                    let url = remote_ref
+                        .url(gix::remote::Direction::Fetch)
+                        .map(|u| u.to_bstring().to_string())
+                        .unwrap_or_else(|| remote.clone());
+                    GitError::InvalidInput(auth::auth_error_message(&url))
+                } else {
+                    GitError::Gix(e.into())
+                }
+            })?;
 
         // Parse custom refspecs if provided
         let parsed_refspecs = if refspecs.is_empty() {

@@ -3,6 +3,7 @@
 //! Provides local Git repository operations using the gix (Gitoxide) library.
 
 pub mod add;
+pub mod auth;
 pub mod branch;
 pub mod checkout;
 pub mod clone;
